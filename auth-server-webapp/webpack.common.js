@@ -24,6 +24,9 @@ const { VueLoaderPlugin } = require('vue-loader')
 const config = {
   entry: {
     'oauth-common': './src/main/webapp/vue-app/oauth-common/main.js',
+    'oauth-consent': './src/main/webapp/vue-app/oauth-consent/main.js',
+    'oauth-user-settings': './src/main/webapp/vue-app/oauth-user-settings/main.js',
+    'oauth-administration': './src/main/webapp/vue-app/oauth-administration/main.js',
   },
   context: path.resolve(__dirname, '.'),
   module: {
