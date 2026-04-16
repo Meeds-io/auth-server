@@ -24,6 +24,95 @@
                   xsi:schemaLocation="http://www.exoplatform.org/xml/ns/gatein_resources_1_4 http://www.exoplatform.org/xml/ns/gatein_resources_1_4"
                   xmlns="http://www.exoplatform.org/xml/ns/gatein_resources_1_4">
 
+  <portlet>
+    <name>OAuthConsent</name>
+    <module>
+      <script>
+        <minify>false</minify>
+        <path>/js/oauth-consent.bundle.js</path>
+      </script>
+      <depends>
+        <module>OAuthCommon</module>
+      </depends>
+      <depends>
+        <module>commonLayoutComponents</module>
+      </depends>
+      <depends>
+        <module>vue</module>
+      </depends>
+      <depends>
+        <module>vuetify</module>
+      </depends>
+      <depends>
+        <module>eXoVueI18n</module>
+      </depends>
+      <depends>
+        <module>extensionRegistry</module>
+      </depends>
+    </module>
+  </portlet>
+
+  <portlet>
+    <name>OAuthAdministration</name>
+    <module>
+      <script>
+        <minify>false</minify>
+        <path>/js/oauth-administration.bundle.js</path>
+      </script>
+      <depends>
+        <module>OAuthCommon</module>
+      </depends>
+      <depends>
+        <module>commonLayoutComponents</module>
+      </depends>
+      <depends>
+        <module>applicationToolbarComponent</module>
+      </depends>
+      <depends>
+        <module>vue</module>
+      </depends>
+      <depends>
+        <module>vuetify</module>
+      </depends>
+      <depends>
+        <module>eXoVueI18n</module>
+      </depends>
+      <depends>
+        <module>extensionRegistry</module>
+      </depends>
+    </module>
+  </portlet>
+
+  <module>
+    <name>OAuthUserSecuritySetting</name>
+    <load-group>UserSettingSecurityGRP</load-group>
+    <script>
+      <minify>false</minify>
+      <path>/js/oauth-user-settings.bundle.js</path>
+    </script>
+    <depends>
+      <module>OAuthCommon</module>
+    </depends>
+    <depends>
+      <module>commonLayoutComponents</module>
+    </depends>
+    <depends>
+      <module>applicationToolbarComponent</module>
+    </depends>
+    <depends>
+      <module>vue</module>
+    </depends>
+    <depends>
+      <module>vuetify</module>
+    </depends>
+    <depends>
+      <module>eXoVueI18n</module>
+    </depends>
+    <depends>
+      <module>extensionRegistry</module>
+    </depends>
+  </module>
+
   <module>
     <name>OAuthCommon</name>
     <script>

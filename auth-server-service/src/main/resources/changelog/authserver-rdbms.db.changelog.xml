@@ -27,4 +27,176 @@
   <property name="autoIncrement" value="true" dbms="mysql,mssql,h2,sybase,db2,hsqldb"/>
   <property name="autoIncrement" value="false" dbms="oracle,postgresql"/>
 
+  <changeSet author="authserver" id="1.0.0-0" dbms="oracle,postgresql,hsqldb">
+    <createSequence sequenceName="SEQ_AUTH_SERVER_CLIENTS_ID" startValue="1"/>
+    <createSequence sequenceName="SEQ_AUTH_SERVER_AUTHORIZATION_CONSENTS_ID" startValue="1"/>
+  </changeSet>
+
+  <changeSet author="authserver" id="1.0.0-1">
+    <createTable tableName="AUTH_SERVER_CLIENTS">
+      <column name="ID" type="BIGINT" autoIncrement="${autoIncrement}" startWith="1">
+        <constraints nullable="false" primaryKey="true" primaryKeyName="PK_AUTH_SERVER_CLIENTS"/>
+      </column>
+      <column name="REGISTERED_CLIENT_ID" type="VARCHAR(255)">
+        <constraints nullable="false" unique="true" uniqueConstraintName="UK_AUTH_SERVER_CLIENTS_REGISTERED_CLIENT_ID" />
+      </column>
+      <column name="CLIENT_ID" type="VARCHAR(255)">
+        <constraints nullable="false" unique="true" uniqueConstraintName="UK_AUTH_SERVER_CLIENTS_CLIENT_ID" />
+      </column>
+      <column name="CLIENT_NAME" type="VARCHAR(255)">
+        <constraints nullable="false"/>
+      </column>
+      <column name="CLIENT_SECRET" type="LONGTEXT" />
+      <column name="CLIENT_TYPE" type="VARCHAR(50)">
+        <constraints nullable="false"/>
+      </column>
+      <column name="CLIENT_ISSUED_AT" type="TIMESTAMP">
+        <constraints nullable="false"/>
+      </column>
+      <column name="CLIENT_AUTH_METHOD" type="VARCHAR(2000)">
+        <constraints nullable="false"/>
+      </column>
+      <column name="INTEGRATION_TYPE" type="VARCHAR(50)" defaultValue="CUSTOM">
+        <constraints nullable="false"/>
+      </column>
+      <column name="GRANT_TYPES" type="VARCHAR(255)">
+        <constraints nullable="false"/>
+      </column>
+      <column name="SCOPES" type="VARCHAR(2048)">
+        <constraints nullable="false"/>
+      </column>
+      <column name="ENABLED" type="BOOLEAN" defaultValueBoolean="true">
+        <constraints nullable="false"/>
+      </column>
+      <column name="ICON_URL" type="LONGTEXT"/>
+      <column name="REDIRECT_URI" type="LONGTEXT" />
+      <column name="CLIENT_SETTINGS" type="LONGTEXT" />
+      <column name="TOKEN_SETTINGS" type="LONGTEXT" />
+      <column name="DOCUMENTATION_URL" type="LONGTEXT" />
+      <column name="CREATED_DATE" type="TIMESTAMP">
+        <constraints nullable="false"/>
+      </column>
+      <column name="MODIFIED_DATE" type="TIMESTAMP">
+        <constraints nullable="false"/>
+      </column>
+    </createTable>
+    <modifySql dbms="mysql">
+      <append value=" ENGINE=INNODB CHARSET=utf8mb4 COLLATE utf8mb4_unicode_ci" />
+    </modifySql>
+  </changeSet>
+
+  <changeSet author="authserver" id="1.0.0-4">
+    <createTable tableName="AUTH_SERVER_AUTHORIZATION">
+      <column name="ID" type="VARCHAR(200)">
+        <constraints nullable="false" primaryKey="true" primaryKeyName="PK_AUTH_SERVER_AUTHORIZATION"/>
+      </column>
+      <column name="REGISTERED_CLIENT_ID" type="VARCHAR(100)">
+        <constraints nullable="false" />
+      </column>
+      <column name="PRINCIPAL_NAME" type="VARCHAR(200)">
+        <constraints nullable="false"/>
+      </column>
+      <column name="AUTHORIZATION_GRANT_TYPE" type="VARCHAR(100)">
+        <constraints nullable="false"/>
+      </column>
+      <column name="AUTHORIZED_SCOPES" type="LONGTEXT"/>
+      <column name="ATTRIBUTES" type="LONGTEXT"/>
+      <column name="STATE" type="VARCHAR(500)"/>
+      <column name="AUTHORIZATION_CODE_VALUE" type="LONGTEXT"/>
+      <column name="AUTHORIZATION_CODE_ISSUED_AT" type="TIMESTAMP"/>
+      <column name="AUTHORIZATION_CODE_EXPIRES_AT" type="TIMESTAMP"/>
+      <column name="AUTHORIZATION_CODE_METADATA" type="LONGTEXT"/>
+      <column name="ACCESS_TOKEN_VALUE" type="LONGTEXT"/>
+      <column name="ACCESS_TOKEN_ISSUED_AT" type="TIMESTAMP"/>
+      <column name="ACCESS_TOKEN_EXPIRES_AT" type="TIMESTAMP"/>
+      <column name="ACCESS_TOKEN_TYPE" type="VARCHAR(100)"/>
+      <column name="ACCESS_TOKEN_SCOPES" type="LONGTEXT"/>
+      <column name="ACCESS_TOKEN_METADATA" type="LONGTEXT"/>
+      <column name="ACCESS_TOKEN_CLAIMS" type="LONGTEXT"/>
+      <column name="REFRESH_TOKEN_VALUE" type="LONGTEXT"/>
+      <column name="REFRESH_TOKEN_ISSUED_AT" type="TIMESTAMP"/>
+      <column name="REFRESH_TOKEN_EXPIRES_AT" type="TIMESTAMP"/>
+      <column name="REFRESH_TOKEN_METADATA" type="LONGTEXT"/>
+      <column name="OIDC_ID_TOKEN_VALUE" type="LONGTEXT"/>
+      <column name="OIDC_ID_TOKEN_ISSUED_AT" type="TIMESTAMP"/>
+      <column name="OIDC_ID_TOKEN_EXPIRES_AT" type="TIMESTAMP"/>
+      <column name="OIDC_ID_TOKEN_METADATA" type="LONGTEXT"/>
+      <column name="OIDC_ID_TOKEN_CLAIMS" type="LONGTEXT"/>
+      <column name="USER_CODE_VALUE" type="LONGTEXT"/>
+      <column name="USER_CODE_ISSUED_AT" type="TIMESTAMP"/>
+      <column name="USER_CODE_EXPIRES_AT" type="TIMESTAMP"/>
+      <column name="USER_CODE_METADATA" type="LONGTEXT"/>
+      <column name="DEVICE_CODE_VALUE" type="LONGTEXT"/>
+      <column name="DEVICE_CODE_ISSUED_AT" type="TIMESTAMP"/>
+      <column name="DEVICE_CODE_EXPIRES_AT" type="TIMESTAMP"/>
+      <column name="DEVICE_CODE_METADATA" type="LONGTEXT"/>
+    </createTable>
+    <modifySql dbms="mysql">
+      <append value=" ENGINE=INNODB CHARSET=utf8mb4 COLLATE utf8mb4_unicode_ci" />
+    </modifySql>
+  </changeSet>
+
+  <changeSet author="authserver" id="1.0.0-5">
+    <createIndex
+      indexName="IDX_AUTH_SERVER_REGISTERED_CLIENT_ID"
+      tableName="AUTH_SERVER_AUTHORIZATION">
+      <column name="REGISTERED_CLIENT_ID"/>
+    </createIndex>
+    <createIndex
+      indexName="IDX_AUTH_SERVER_PRINCIPAL_NAME"
+      tableName="AUTH_SERVER_AUTHORIZATION">
+      <column name="PRINCIPAL_NAME"/>
+    </createIndex>
+    <createIndex
+      indexName="IDX_AUTH_SERVER_STATE"
+      tableName="AUTH_SERVER_AUTHORIZATION"
+      unique="true">
+      <column name="STATE"/>
+    </createIndex>
+  </changeSet>
+
+  <changeSet author="authserver" id="1.0.0-6">
+    <createTable tableName="AUTH_SERVER_AUTHORIZATION_CONSENT">
+      <column name="ID" type="BIGINT" autoIncrement="${autoIncrement}" startWith="1">
+        <constraints nullable="false" primaryKey="true" primaryKeyName="PK_AUTH_SERVER_AUTHORIZATION_CONSENT"/>
+      </column>
+      <column name="REGISTERED_CLIENT_ID" type="VARCHAR(100)">
+        <constraints nullable="false"/>
+      </column>
+      <column name="PRINCIPAL_NAME" type="VARCHAR(200)">
+        <constraints nullable="false"/>
+      </column>
+      <column name="AUTHORITIES" type="LONGTEXT">
+        <constraints nullable="false"/>
+      </column>
+      <column name="CREATED_DATE" type="TIMESTAMP">
+        <constraints nullable="false"/>
+      </column>
+      <column name="LAST_USED_DATE" type="TIMESTAMP">
+        <constraints nullable="false"/>
+      </column>
+    </createTable>
+  </changeSet>
+
+  <changeSet author="authserver" id="1.0.0-7">
+    <addUniqueConstraint
+      tableName="AUTH_SERVER_AUTHORIZATION_CONSENT"
+      columnNames="REGISTERED_CLIENT_ID, PRINCIPAL_NAME"
+      constraintName="UK_AUTH_SERVER_AUTHORIZATION_CONSENT_CLIENT_PRINCIPAL" />
+  </changeSet>
+
+  <changeSet author="authserver" id="1.0.0-8">
+    <createIndex
+      indexName="IDX_AUTH_SERVER_AUTHORIZATION_CONSENT_CLIENT_PRINCIPAL"
+      tableName="AUTH_SERVER_AUTHORIZATION_CONSENT">
+      <column name="REGISTERED_CLIENT_ID"/>
+      <column name="PRINCIPAL_NAME"/>
+    </createIndex>
+    <createIndex
+      indexName="IDX_AUTH_SERVER_AUTHORIZATION_CONSENT_PRINCIPAL"
+      tableName="AUTH_SERVER_AUTHORIZATION_CONSENT">
+      <column name="PRINCIPAL_NAME"/>
+    </createIndex>
+  </changeSet>
+
 </databaseChangeLog>
