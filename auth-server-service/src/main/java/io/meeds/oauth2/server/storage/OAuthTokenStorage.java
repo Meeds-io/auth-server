@@ -30,6 +30,7 @@ import org.springframework.security.oauth2.core.oidc.endpoint.OidcParameterNames
 import org.springframework.security.oauth2.server.authorization.OAuth2Authorization;
 import org.springframework.security.oauth2.server.authorization.OAuth2AuthorizationService;
 import org.springframework.security.oauth2.server.authorization.OAuth2TokenType;
+import org.springframework.security.oauth2.server.authorization.client.RegisteredClient;
 import org.springframework.stereotype.Component;
 
 import io.meeds.oauth2.server.dao.OAuthTokenDao;
@@ -44,6 +45,9 @@ public class OAuthTokenStorage implements OAuth2AuthorizationService {
   public static final String ACCESS_TOKEN_VALUE  = "access_token";
 
   public static final String REFRESH_TOKEN_VALUE = "refresh_token";
+
+  @Autowired
+  private OAuthClientStorage oAuthClientStorage;
 
   @Autowired
   private OAuthTokenDao      dao;
@@ -99,6 +103,7 @@ public class OAuthTokenStorage implements OAuth2AuthorizationService {
   }
 
   public List<OAuthAccessToken> findByUserAndClientId(String username, String clientId) {
+    clientId = getClientId(clientId);
     return dao.findByAccessTokenValueNotNullAndPrincipalNameAndRegisteredClientId(username, clientId)
               .stream()
               .map(EntityMapper::toSimplifiedObject)
@@ -113,6 +118,7 @@ public class OAuthTokenStorage implements OAuth2AuthorizationService {
   }
 
   public List<OAuthAccessToken> findByClientId(String clientId) {
+    clientId = getClientId(clientId);
     return dao.findByAccessTokenValueNotNullAndRegisteredClientId(clientId)
               .stream()
               .map(EntityMapper::toSimplifiedObject)
@@ -121,17 +127,28 @@ public class OAuthTokenStorage implements OAuth2AuthorizationService {
 
   @CacheEvict(cacheNames = CACHE_NAME, allEntries = true)
   public void deleteByUserAndClientId(String username, String clientId) {
+    clientId = getClientId(clientId);
     dao.deleteByPrincipalNameAndRegisteredClientId(username, clientId);
   }
 
   @CacheEvict(cacheNames = CACHE_NAME, allEntries = true)
   public void deleteByClientId(String clientId) {
+    clientId = getClientId(clientId);
     dao.deleteByRegisteredClientId(clientId);
   }
 
   @CacheEvict(cacheNames = CACHE_NAME, allEntries = true)
   public void deleteByUser(String username) {
     dao.deleteByPrincipalName(username);
+  }
+
+  private String getClientId(String clientId) {
+    RegisteredClient client = oAuthClientStorage.findByClientId(clientId);
+    if (client != null) {
+      return client.getClientId();
+    } else {
+      return clientId;
+    }
   }
 
 }
