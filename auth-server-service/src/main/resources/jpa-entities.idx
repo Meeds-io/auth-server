@@ -1,0 +1,3 @@
+io.meeds.ai.oauth2.entity.OAuthConsentEntity
+io.meeds.ai.oauth2.entity.OAuthTokenEntity
+io.meeds.ai.oauth2.entity.OAuthClientEntity
