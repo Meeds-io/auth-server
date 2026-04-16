@@ -30,6 +30,7 @@ import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.security.oauth2.server.authorization.OAuth2AuthorizationConsent;
 import org.springframework.security.oauth2.server.authorization.OAuth2AuthorizationConsentService;
+import org.springframework.security.oauth2.server.authorization.client.RegisteredClient;
 import org.springframework.stereotype.Component;
 
 import org.exoplatform.services.listener.ListenerService;
@@ -45,6 +46,9 @@ public class OAuthConsentStorage implements OAuth2AuthorizationConsentService {
   public static final String CACHE_NAME = "oauth.consents";
 
   @Autowired
+  private OAuthClientStorage oAuthClientStorage;
+
+  @Autowired
   private OAuthConsentDao    dao;
 
   @Autowired
@@ -53,6 +57,7 @@ public class OAuthConsentStorage implements OAuth2AuthorizationConsentService {
   @Override
   @Cacheable(cacheNames = CACHE_NAME, key = "{#root.args[0], #root.args[1]}")
   public OAuth2AuthorizationConsent findById(String clientId, String username) {
+    clientId = getClientId(clientId);
     return dao.findByPrincipalNameAndRegisteredClientId(username, clientId)
               .map(EntityMapper::toObject)
               .orElse(null);
@@ -61,10 +66,11 @@ public class OAuthConsentStorage implements OAuth2AuthorizationConsentService {
   @Override
   @CacheEvict(cacheNames = CACHE_NAME, allEntries = true)
   public void save(OAuth2AuthorizationConsent authorizationConsent) {
+    String clientId = getClientId(authorizationConsent);
     OAuthConsent existingClientAuthorization = findByUserAndClientId(authorizationConsent.getPrincipalName(),
-                                                                     authorizationConsent.getRegisteredClientId());
+                                                                     clientId);
     OAuthConsentEntity entity = dao.findByPrincipalNameAndRegisteredClientId(authorizationConsent.getPrincipalName(),
-                                                                             authorizationConsent.getRegisteredClientId())
+                                                                             clientId)
                                    .orElseGet(OAuthConsentEntity::new);
     boolean isNew = entity.getId() == null;
     toEntity(authorizationConsent, entity);
@@ -79,10 +85,12 @@ public class OAuthConsentStorage implements OAuth2AuthorizationConsentService {
   @Override
   @CacheEvict(cacheNames = CACHE_NAME, allEntries = true)
   public void remove(OAuth2AuthorizationConsent authorizationConsent) {
-    deleteByUserAndClientId(authorizationConsent.getPrincipalName(), authorizationConsent.getRegisteredClientId());
+    String clientId = getClientId(authorizationConsent);
+    deleteByUserAndClientId(authorizationConsent.getPrincipalName(), clientId);
   }
 
   public OAuthConsent findByUserAndClientId(String username, String clientId) {
+    clientId = getClientId(clientId);
     return dao.findByPrincipalNameAndRegisteredClientId(username, clientId)
               .map(this::toSimplifiedObject)
               .orElse(null);
@@ -96,6 +104,7 @@ public class OAuthConsentStorage implements OAuth2AuthorizationConsentService {
   }
 
   public List<OAuthConsent> findByClientId(String clientId) {
+    clientId = getClientId(clientId);
     return dao.findByRegisteredClientId(clientId)
               .stream()
               .map(this::toSimplifiedObject)
@@ -104,13 +113,17 @@ public class OAuthConsentStorage implements OAuth2AuthorizationConsentService {
 
   @CacheEvict(cacheNames = CACHE_NAME, allEntries = true)
   public void deleteByUserAndClientId(String username, String clientId) {
+    clientId = getClientId(clientId);
     OAuthConsent existingClientAuthorization = findByUserAndClientId(username, clientId);
     dao.deleteByPrincipalNameAndRegisteredClientId(username, clientId);
-    listenerService.broadcast(CLIENT_AUTHORIZATION_DELETED, existingClientAuthorization, null);
+    if (existingClientAuthorization != null) {
+      listenerService.broadcast(CLIENT_AUTHORIZATION_DELETED, existingClientAuthorization, null);
+    }
   }
 
   @CacheEvict(cacheNames = CACHE_NAME, allEntries = true)
   public void deleteByClientId(String clientId) {
+    clientId = getClientId(clientId);
     dao.findByRegisteredClientId(clientId)
        .stream()
        .forEach(a -> deleteByUserAndClientId(a.getPrincipalName(), a.getRegisteredClientId()));
@@ -125,6 +138,20 @@ public class OAuthConsentStorage implements OAuth2AuthorizationConsentService {
 
   private OAuthConsent toSimplifiedObject(OAuthConsentEntity ac) {
     return EntityMapper.toSimplifiedObject(ac);
+  }
+
+  private String getClientId(OAuth2AuthorizationConsent authorizationConsent) {
+    String clientId = authorizationConsent.getRegisteredClientId();
+    return getClientId(clientId);
+  }
+
+  private String getClientId(String clientId) {
+    RegisteredClient client = oAuthClientStorage.findByClientId(clientId);
+    if (client != null) {
+      return client.getClientId();
+    } else {
+      return clientId;
+    }
   }
 
 }
