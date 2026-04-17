@@ -264,7 +264,9 @@ public class OAuthSecurityConfiguration {
                             m.clear();
                             m.add(ClientAuthenticationMethod.CLIENT_SECRET_BASIC.getValue());
                           })
-                          .scopes(scopes -> customizeMetadataScopes(oAuthSettingService, scopes));
+                          .scopes(scopes -> customizeMetadataScopes(oAuthSettingService, scopes))
+                          // CIMD Custom support
+                          .claim("client_id_metadata_document_supported", true);
   }
 
   private OAuth2AuthorizationServerMetadata.Builder customizeMetadata(OAuth2AuthorizationServerMetadata.Builder metadataBuilder,
@@ -276,7 +278,9 @@ public class OAuthSecurityConfiguration {
                             m.clear();
                             m.add(ClientAuthenticationMethod.CLIENT_SECRET_BASIC.getValue());
                           })
-                          .scopes(scopes -> customizeMetadataScopes(oAuthSettingService, scopes));
+                          .scopes(scopes -> customizeMetadataScopes(oAuthSettingService, scopes))
+                          // CIMD Custom support
+                          .claim("client_id_metadata_document_supported", true);
   }
 
   private OAuth2AuthorizationEndpointConfigurer customizeAuthorizationEndpoint(OAuth2AuthorizationEndpointConfigurer authorizationEndpoint,
