@@ -21,7 +21,7 @@ package io.meeds.oauth2.server.plugin;
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClient;
 
 @FunctionalInterface
-public interface OAuthClientOpenRegistrationValidator {
+public interface OAuthDcrValidator {
 
   void validate(RegisteredClient client);
 
