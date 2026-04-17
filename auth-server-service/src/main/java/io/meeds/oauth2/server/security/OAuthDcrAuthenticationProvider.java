@@ -29,6 +29,7 @@ import org.springframework.core.convert.converter.Converter;
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
+import org.springframework.security.oauth2.core.ClientAuthenticationMethod;
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClient;
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClient.Builder;
 import org.springframework.security.oauth2.server.authorization.oidc.OidcClientRegistration;
@@ -94,7 +95,10 @@ public class OAuthDcrAuthenticationProvider implements AuthenticationProvider {
     }
     Builder clientBuilder = RegisteredClient.from(client)
                                             .id(client.getClientId());
-    if (StringUtils.isNotBlank(client.getClientSecret())) {
+    if (ClientAuthenticationMethod.NONE.getValue().equals(oidcClientRegistration.getTokenEndpointAuthenticationMethod())) {
+      clientBuilder.clientSecret(null);
+      clientBuilder.clientAuthenticationMethod(ClientAuthenticationMethod.NONE);
+    } else if (StringUtils.isNotBlank(client.getClientSecret())) {
       clientBuilder.clientSecret(passwordEncoder.encode(client.getClientSecret()));
     }
     ClientSettings.Builder clientSettingsBuilder = ClientSettings.withSettings(client.getClientSettings().getSettings());
