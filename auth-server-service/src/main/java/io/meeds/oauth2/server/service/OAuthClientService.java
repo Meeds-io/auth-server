@@ -71,56 +71,56 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class OAuthClientService {
 
-  public static final String                         ATTACHMENT_URL_PATTERN      =
-                                                                            "%s/portal/rest/v1/social/attachments/%s/%s/%s";
+  public static final String      ATTACHMENT_URL_PATTERN      =
+                                                         "%s/portal/rest/v1/social/attachments/%s/%s/%s";
 
-  private static final String                        CLIENT_NAME_MANDATORY_MSG   = "Client Name is mandatory";
+  private static final String     CLIENT_NAME_MANDATORY_MSG   = "Client Name is mandatory";
 
-  private static final String                        CLIENT_ID_MANDATORY_MSG     = "Client Id is mandatory";
+  private static final String     CLIENT_ID_MANDATORY_MSG     = "Client Id is mandatory";
 
-  private static final String                        CLIENT_NOT_FOUND_MSG        = "Client with Id %s not found";
+  private static final String     CLIENT_NOT_FOUND_MSG        = "Client with Id %s not found";
 
-  private static final String                        CLIENT_SYSTEM_MSG           =
-                                                                       "Client with Id %s can't be removed as it's required by the system";
+  private static final String     CLIENT_SYSTEM_MSG           =
+                                                    "Client with Id %s can't be removed as it's required by the system";
 
-  private static final String                        REDIRECT_URIS_MANDATORY_MSG = "Client Redirect URIs is mandatory";
+  private static final String     REDIRECT_URIS_MANDATORY_MSG = "Client Redirect URIs is mandatory";
 
-  private static final String                        REDIRECT_NAME_MANDATORY_MSG = "Client Name is mandatory";
+  private static final String     REDIRECT_NAME_MANDATORY_MSG = "Client Name is mandatory";
 
-  private static final String                        SCOPES_MANDATORY_MSG        = "Client Scopes is mandatory";
-
-  @Autowired
-  private RestClient                                 restClient;
+  private static final String     SCOPES_MANDATORY_MSG        = "Client Scopes is mandatory";
 
   @Autowired
-  private UserACL                                    userAcl;
+  private RestClient              restClient;
 
   @Autowired
-  private OAuthSettingService                        oAuthSettingService;
+  private UserACL                 userAcl;
 
   @Autowired
-  private UploadService                              uploadService;
+  private OAuthSettingService     oAuthSettingService;
 
   @Autowired
-  private AttachmentService                          attachmentService;
+  private UploadService           uploadService;
 
   @Autowired
-  private IdentityManager                            identityManager;
+  private AttachmentService       attachmentService;
 
   @Autowired
-  private ImageResizeService                         imageResizeService;
+  private IdentityManager         identityManager;
 
   @Autowired
-  private OAuthClientStorage                         storage;
+  private ImageResizeService      imageResizeService;
+
+  @Autowired
+  private OAuthClientStorage      storage;
 
   @Autowired
   private List<OAuthDcrValidator> openRegistrationValidators;
 
   @Value("${meeds.oauth.dcr.enabled:true}")
-  private boolean                                    dcrEnabled;
+  private boolean                 dcrEnabled;
 
   @Value("${meeds.oauth.dcr.maxLogoBytes:20971520}")
-  private int                                        maxLogoBytes;
+  private int                     maxLogoBytes;
 
   public List<RegisteredClient> getAllClients() {
     return getClients(true);
@@ -155,6 +155,10 @@ public class OAuthClientService {
 
   public RegisteredClient getClient(String clientId, boolean includeDisabled) {
     return storage.getClient(clientId, includeDisabled);
+  }
+
+  public RegisteredClient getClient(String clientId) {
+    return getClient(clientId, false);
   }
 
   @SneakyThrows

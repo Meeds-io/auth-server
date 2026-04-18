@@ -71,6 +71,7 @@ import org.springframework.web.util.UriComponentsBuilder;
 import org.exoplatform.commons.utils.CommonsUtils;
 
 import io.meeds.oauth2.server.configuration.model.OAuthDefaultSettings;
+import io.meeds.oauth2.server.plugin.OAuthAuthorizationRequestConverter;
 import io.meeds.oauth2.server.plugin.OAuthDcrHttpAuthenticationConverter;
 import io.meeds.oauth2.server.security.OAuthCimdAuthenticationProvider;
 import io.meeds.oauth2.server.security.OAuthDcrAuthenticationProvider;
@@ -107,6 +108,7 @@ public class OAuthSecurityConfiguration {
                                                              OAuthPortalPreAuthenticatedFilter portalPreAuthenticatedFilter,
                                                              OAuthCimdAuthenticationProvider cimdAuthenticationProvider,
                                                              OAuthDcrHttpAuthenticationConverter oAuthDcrHttpAuthenticationConverter,
+                                                             OAuthAuthorizationRequestConverter oAuthAuthorizationRequestConverter,
                                                              SecurityContextRepository securityContextRepository,
                                                              @Qualifier("oauthAuthenticationProvider")
                                                              OAuthDcrAuthenticationProvider oauthAuthenticationProvider,
@@ -123,7 +125,8 @@ public class OAuthSecurityConfiguration {
                .authenticationProvider(portalAuthenticationProvider)
                .with(authorizationServer,
                      a -> a.authorizationEndpoint(e -> customizeAuthorizationEndpoint(e,
-                                                                                      cimdAuthenticationProvider))
+                                                                                      cimdAuthenticationProvider,
+                                                                                      oAuthAuthorizationRequestConverter))
                            .authorizationServerMetadataEndpoint(oauth -> oauth.authorizationServerMetadataCustomizer(c -> customizeMetadata(c,
                                                                                                                                             oAuthSettingService)))
                            .oidc(oidc -> oidc.clientRegistrationEndpoint(e -> customizeRegistrationEndpoint(e,
@@ -233,7 +236,7 @@ public class OAuthSecurityConfiguration {
    */
   @Bean("oauthAuthenticationProvider")
   OAuthDcrAuthenticationProvider oauthAuthenticationProvider(OAuthClientService oAuthClientService,
-                                                     OAuthPasswordEncoder passwordEncoder) {
+                                                             OAuthPasswordEncoder passwordEncoder) {
     return new OAuthDcrAuthenticationProvider(oAuthClientService, passwordEncoder);
   }
   // @formatter:on
@@ -287,9 +290,11 @@ public class OAuthSecurityConfiguration {
   }
 
   private OAuth2AuthorizationEndpointConfigurer customizeAuthorizationEndpoint(OAuth2AuthorizationEndpointConfigurer authorizationEndpoint,
-                                                                               OAuthCimdAuthenticationProvider cimdAuthenticationProvider) {
+                                                                               OAuthCimdAuthenticationProvider cimdAuthenticationProvider,
+                                                                               OAuthAuthorizationRequestConverter oAuthAuthorizationRequestConverter) {
     return authorizationEndpoint.consentPage(CommonsUtils.getCurrentDomain() + CONSENT_URL)
-                                .authenticationProviders(ap -> ap.add(0, cimdAuthenticationProvider));
+                                .authenticationProviders(ap -> ap.add(0, cimdAuthenticationProvider))
+                                .authorizationRequestConverters(c -> c.add(0, oAuthAuthorizationRequestConverter));
   }
 
   private OidcClientRegistrationEndpointConfigurer customizeRegistrationEndpoint(OidcClientRegistrationEndpointConfigurer registrationEndpointConfigurer,
