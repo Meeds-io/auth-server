@@ -60,7 +60,7 @@ import org.exoplatform.upload.UploadResource;
 import org.exoplatform.upload.UploadService;
 
 import io.meeds.oauth2.server.plugin.OAuthClientAttachmentPlugin;
-import io.meeds.oauth2.server.plugin.OAuthClientOpenRegistrationValidator;
+import io.meeds.oauth2.server.plugin.OAuthDcrValidator;
 import io.meeds.oauth2.server.storage.OAuthClientStorage;
 import io.meeds.oauth2.server.util.Utils;
 
@@ -114,7 +114,7 @@ public class OAuthClientService {
   private OAuthClientStorage                         storage;
 
   @Autowired
-  private List<OAuthClientOpenRegistrationValidator> openRegistrationValidators;
+  private List<OAuthDcrValidator> openRegistrationValidators;
 
   @Value("${meeds.oauth.dcr.enabled:true}")
   private boolean                                    dcrEnabled;

@@ -58,12 +58,16 @@ public class OAuthDcrAuthenticationProvider implements AuthenticationProvider {
 
   private final Converter<RegisteredClient, OidcClientRegistration> clientRegistrationConverter;
 
-  public OAuthDcrAuthenticationProvider(OAuthClientService oAuthClientService,
-                                        OAuthPasswordEncoder passwordEncoder) {
+  public OAuthDcrAuthenticationProvider(OAuthClientService oAuthClientService, OAuthPasswordEncoder passwordEncoder) {
     this.oAuthClientService = oAuthClientService;
     this.passwordEncoder = passwordEncoder;
     this.registeredClientConverter = new OidcClientRegistrationRegisteredClientConverter();
     this.clientRegistrationConverter = new RegisteredClientOidcClientRegistrationConverter();
+  }
+
+  @Override
+  public boolean supports(Class<?> authentication) {
+    return OidcClientRegistrationAuthenticationToken.class.isAssignableFrom(authentication);
   }
 
   @Override
@@ -81,11 +85,6 @@ public class OAuthDcrAuthenticationProvider implements AuthenticationProvider {
     RegisteredClient registeredClient = oAuthClientService.register(client);
     return new OidcClientRegistrationAuthenticationToken(authenticationToken,
                                                          convert(registeredClient));
-  }
-
-  @Override
-  public boolean supports(Class<?> authentication) {
-    return OidcClientRegistrationAuthenticationToken.class.isAssignableFrom(authentication);
   }
 
   private RegisteredClient convert(OidcClientRegistration oidcClientRegistration) {

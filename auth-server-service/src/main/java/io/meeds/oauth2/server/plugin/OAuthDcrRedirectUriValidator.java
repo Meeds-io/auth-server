@@ -34,7 +34,7 @@ import io.meeds.oauth2.server.service.OAuthSettingService;
 import lombok.SneakyThrows;
 
 @Component
-public class OAuthClientOpenRegistrationRedirectUriValidator implements OAuthClientOpenRegistrationValidator {
+public class OAuthDcrRedirectUriValidator implements OAuthDcrValidator {
 
   @Autowired
   private OAuthSettingService oAuthSettingService;

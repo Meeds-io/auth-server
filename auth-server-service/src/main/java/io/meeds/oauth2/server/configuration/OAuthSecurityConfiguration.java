@@ -71,6 +71,7 @@ import org.springframework.web.util.UriComponentsBuilder;
 import org.exoplatform.commons.utils.CommonsUtils;
 
 import io.meeds.oauth2.server.configuration.model.OAuthDefaultSettings;
+import io.meeds.oauth2.server.plugin.OAuthDcrHttpAuthenticationConverter;
 import io.meeds.oauth2.server.security.OAuthCimdAuthenticationProvider;
 import io.meeds.oauth2.server.security.OAuthDcrAuthenticationProvider;
 import io.meeds.oauth2.server.security.OAuthPortalAuthenticationProvider;
@@ -105,9 +106,10 @@ public class OAuthSecurityConfiguration {
                                                              OAuthPortalAuthenticationProvider portalAuthenticationProvider,
                                                              OAuthPortalPreAuthenticatedFilter portalPreAuthenticatedFilter,
                                                              OAuthCimdAuthenticationProvider cimdAuthenticationProvider,
+                                                             OAuthDcrHttpAuthenticationConverter oAuthDcrHttpAuthenticationConverter,
                                                              SecurityContextRepository securityContextRepository,
                                                              @Qualifier("oauthAuthenticationProvider")
-                                                             AuthenticationProvider oauthAuthenticationProvider,
+                                                             OAuthDcrAuthenticationProvider oauthAuthenticationProvider,
                                                              @Qualifier("oauthAuthenticationEntryPoint")
                                                              AuthenticationEntryPoint oauthAuthenticationEntryPoint,
                                                              @Qualifier("oauthAccessDeniedHandler")
@@ -125,7 +127,8 @@ public class OAuthSecurityConfiguration {
                            .authorizationServerMetadataEndpoint(oauth -> oauth.authorizationServerMetadataCustomizer(c -> customizeMetadata(c,
                                                                                                                                             oAuthSettingService)))
                            .oidc(oidc -> oidc.clientRegistrationEndpoint(e -> customizeRegistrationEndpoint(e,
-                                                                                                            oauthAuthenticationProvider))
+                                                                                                            oauthAuthenticationProvider,
+                                                                                                            oAuthDcrHttpAuthenticationConverter))
                                              .providerConfigurationEndpoint(pc -> pc.providerConfigurationCustomizer(c -> customizeMetadata(c,
                                                                                                                                             oAuthSettingService)))
                                              .logoutEndpoint(withDefaults())))
@@ -178,7 +181,7 @@ public class OAuthSecurityConfiguration {
   }
 
   @Bean
-  public HttpFirewall allowDoubleSlashFirewall() {
+  HttpFirewall allowDoubleSlashFirewall() {
     StrictHttpFirewall firewall = new StrictHttpFirewall();
     firewall.setAllowUrlEncodedDoubleSlash(true);
     return firewall;
@@ -229,7 +232,7 @@ public class OAuthSecurityConfiguration {
    * @return {@link AuthenticationProvider}
    */
   @Bean("oauthAuthenticationProvider")
-  AuthenticationProvider oauthAuthenticationProvider(OAuthClientService oAuthClientService,
+  OAuthDcrAuthenticationProvider oauthAuthenticationProvider(OAuthClientService oAuthClientService,
                                                      OAuthPasswordEncoder passwordEncoder) {
     return new OAuthDcrAuthenticationProvider(oAuthClientService, passwordEncoder);
   }
@@ -290,8 +293,10 @@ public class OAuthSecurityConfiguration {
   }
 
   private OidcClientRegistrationEndpointConfigurer customizeRegistrationEndpoint(OidcClientRegistrationEndpointConfigurer registrationEndpointConfigurer,
-                                                                                 AuthenticationProvider oauthAuthenticationProvider) {
-    return registrationEndpointConfigurer.authenticationProviders(p -> p.add(0, oauthAuthenticationProvider));
+                                                                                 OAuthDcrAuthenticationProvider oauthAuthenticationProvider,
+                                                                                 OAuthDcrHttpAuthenticationConverter oAuthDcrHttpAuthenticationConverter) {
+    return registrationEndpointConfigurer.authenticationProviders(p -> p.add(0, oauthAuthenticationProvider))
+                                         .clientRegistrationRequestConverters(c -> c.add(0, oAuthDcrHttpAuthenticationConverter));
   }
 
   private void customizeMetadataScopes(OAuthSettingService oAuthSettingService, List<String> scopes) {

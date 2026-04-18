@@ -25,7 +25,7 @@ import org.springframework.security.oauth2.server.authorization.client.Registere
 import org.springframework.stereotype.Component;
 
 @Component
-public class OAuthClientOpenRegistrationGrantTypeValidator implements OAuthClientOpenRegistrationValidator {
+public class OAuthDcrGrantTypeValidator implements OAuthDcrValidator {
 
   @Override
   public void validate(RegisteredClient client) {

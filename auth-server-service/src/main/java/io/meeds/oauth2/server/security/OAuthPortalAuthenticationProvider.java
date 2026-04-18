@@ -55,43 +55,23 @@ import lombok.SneakyThrows;
 @Component
 public class OAuthPortalAuthenticationProvider implements AuthenticationProvider {
 
-  private static OrganizationService  organizationService;
+  private OrganizationService  organizationService;
 
-  private static ConversationRegistry conversationRegistry;
+  private ConversationRegistry conversationRegistry;
 
-  private static IdentityRegistry     identityRegistry;
+  private IdentityRegistry     identityRegistry;
 
-  private static Authenticator        authenticator;
+  private Authenticator        authenticator;
+
+  @Override
+  public boolean supports(Class<?> authentication) {
+    return PreAuthenticatedAuthenticationToken.class.isAssignableFrom(authentication);
+  }
 
   @Override
   public Authentication authenticate(Authentication authentication) throws AuthenticationException {
     ServletRequestAttributes requestAttributes = (ServletRequestAttributes) RequestContextHolder.currentRequestAttributes();
     return authenticate(requestAttributes);
-  }
-
-  @ContainerTransactional
-  private Authentication authenticate(ServletRequestAttributes requestAttributes) {
-    HttpServletRequest request = requestAttributes.getRequest();
-    try {
-      Identity identity = getCurrentIdentity(request);
-      if (isAnonymousUser(identity)) {
-        return new AnonymousAuthenticationToken(IdentityConstants.ANONIM,
-                                                IdentityConstants.ANONIM,
-                                                Collections.singletonList(new JaasGrantedAuthority("guests",
-                                                                                                   new UserPrincipal(IdentityConstants.ANONIM))));
-      } else {
-        return new PreAuthenticatedAuthenticationToken(identity.getUserId(),
-                                                       identity.getUserId(),
-                                                       getAuthorities(identity));
-      }
-    } catch (Exception e) {
-      throw new AuthenticationServiceException("An unknown error is encountered while authenticating user", e);
-    }
-  }
-
-  @Override
-  public boolean supports(Class<?> authentication) {
-    return PreAuthenticatedAuthenticationToken.class.isAssignableFrom(authentication);
   }
 
   public Identity getCurrentIdentity(HttpServletRequest httpRequest) {
@@ -108,6 +88,26 @@ public class OAuthPortalAuthenticationProvider implements AuthenticationProvider
            || IdentityConstants.ANONIM.equals(identity.getUserId())
            || (!identity.isMemberOf("/platform/users") && !identity.isMemberOf("/platform/externals"))
            || isDisabledUser(identity.getUserId());
+  }
+
+  @ContainerTransactional
+  protected Authentication authenticate(ServletRequestAttributes requestAttributes) {
+    HttpServletRequest request = requestAttributes.getRequest();
+    try {
+      Identity identity = getCurrentIdentity(request);
+      if (isAnonymousUser(identity)) {
+        return new AnonymousAuthenticationToken(IdentityConstants.ANONIM,
+                                                IdentityConstants.ANONIM,
+                                                Collections.singletonList(new JaasGrantedAuthority("guests",
+                                                                                                   new UserPrincipal(IdentityConstants.ANONIM))));
+      } else {
+        return new PreAuthenticatedAuthenticationToken(identity.getUserId(),
+                                                       identity.getUserId(),
+                                                       getAuthorities(identity));
+      }
+    } catch (Exception e) {
+      throw new AuthenticationServiceException("An unknown error is encountered while authenticating user", e);
+    }
   }
 
   private Identity getCurrentIdentity(HttpServletRequest httpRequest, String userId) {
@@ -171,28 +171,28 @@ public class OAuthPortalAuthenticationProvider implements AuthenticationProvider
                                            .findUserByName(username, UserStatus.ENABLED);
   }
 
-  private static Authenticator getAuthenticator() {
+  private Authenticator getAuthenticator() {
     if (authenticator == null) {
       authenticator = ExoContainerContext.getService(Authenticator.class);
     }
     return authenticator;
   }
 
-  private static IdentityRegistry getIdentityRegistry() {
+  private IdentityRegistry getIdentityRegistry() {
     if (identityRegistry == null) {
       identityRegistry = ExoContainerContext.getService(IdentityRegistry.class);
     }
     return identityRegistry;
   }
 
-  private static OrganizationService getOrganizationService() {
+  private OrganizationService getOrganizationService() {
     if (organizationService == null) {
       organizationService = ExoContainerContext.getService(OrganizationService.class);
     }
     return organizationService;
   }
 
-  private static ConversationRegistry getConversationRegistry() {
+  private ConversationRegistry getConversationRegistry() {
     if (conversationRegistry == null) {
       conversationRegistry = ExoContainerContext.getService(ConversationRegistry.class);
     }
