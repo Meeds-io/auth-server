@@ -19,22 +19,24 @@
  */
 import OAuthAdministration from './components/OAuthAdministration.vue';
 
-import OauthAdministrationRedirectUris from './components/OauthAdministrationRedirectUris.vue';
-import OauthAdministrationCorsOrigins from './components/OauthAdministrationCorsOrigins.vue';
-import OauthAdministrationCimdUris from './components/OauthAdministrationCimdUris.vue';
+import OauthAdministrationDcrRedirectUris from './components/permissions/DcrRedirectUris.vue';
+import OauthAdministrationCorsOrigins from './components/permissions/CorsOrigins.vue';
+import OauthAdministrationCimdUris from './components/permissions/CimdUris.vue';
 
-import OauthAdministrationClients from './components/OauthAdministrationClients.vue';
-import OauthAdministrationClient from './components/OauthAdministrationClient.vue';
-import OauthAdministrationClientRedirectUris from './components/OauthAdministrationClientRedirectUris.vue';
-import OauthAdministrationClientScopes from './components/OauthAdministrationClientScopes.vue';
-import OauthAdministrationClientLogo from './components/OauthAdministrationClientLogo.vue';
+import OauthAdministrationDcrRedirectUrisDrawer from './components/permissions/drawer/DcrRedirectUrisDrawer.vue';
 
-import OauthAdministrationClientDrawer from './components/OauthAdministrationClientDrawer.vue';
+import OauthAdministrationClients from './components/clients/Clients.vue';
+import OauthAdministrationClient from './components/clients/Client.vue';
+import OauthAdministrationClientRedirectUris from './components/clients/ClientRedirectUris.vue';
+import OauthAdministrationClientScopes from './components/clients/ClientScopes.vue';
+import OauthAdministrationClientLogo from './components/clients/ClientLogo.vue';
+import OauthAdministrationClientDrawer from './components/clients/drawer/ClientDrawer.vue';
 
 const components = {
   'oauth-administration': OAuthAdministration,
 
-  'oauth-administration-redirect-uris': OauthAdministrationRedirectUris,
+  'oauth-administration-dcr-redirect-uris': OauthAdministrationDcrRedirectUris,
+  'oauth-administration-dcr-redirect-uris-drawer': OauthAdministrationDcrRedirectUrisDrawer,
   'oauth-administration-cimd-uris': OauthAdministrationCimdUris,
   'oauth-administration-cors-origins': OauthAdministrationCorsOrigins,
 
@@ -44,7 +46,6 @@ const components = {
   'oauth-administration-client-redirect-uris': OauthAdministrationClientRedirectUris,
   'oauth-administration-client-scopes': OauthAdministrationClientScopes,
   'oauth-administration-client-logo': OauthAdministrationClientLogo,
-
   'oauth-administration-client-drawer': OauthAdministrationClientDrawer,
 };
 

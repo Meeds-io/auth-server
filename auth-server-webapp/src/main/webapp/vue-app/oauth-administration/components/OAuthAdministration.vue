@@ -17,52 +17,39 @@
  Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 -->
 <template>
-  <v-app class="application-body px-5 border-box-sizing">
+  <v-app class="application-body pa-5 border-box-sizing">
     <main v-if="initialized">
-      <v-row class="ma-0">
-        <v-col
-          cols="12"
-          md="6"
-          lg="4"
-          class="ps-0 py-0 pe-4">
-          <oauth-administration-redirect-uris
-            :redirect-uris="redirectUris"
-            :allow-all-redirect-uris="allowAllRedirectUris"
-            class="me-2 mt-5"
-            @add-redirect-uri="addRedirectUri"
-            @remove-redirect-uri="removeRedirectUri"
-            @allow-all="changeAllowAllRedirectUris" />
-        </v-col>
-        <v-col
-          cols="12"
-          md="6"
-          lg="4"
-          class="ps-0 py-0 pe-4">
-          <oauth-administration-cimd-uris
-            :cimd-uris="cimdUris"
-            :allow-all-cimd-uris="allowAllCimdUris"
-            class="me-2 mt-5"
-            @add-cimd-uri="addCimdUri"
-            @remove-cimd-uri="removeCimdUri"
-            @allow-all="changeAllowAllCimdUris" />
-        </v-col>
-        <v-col
-          cols="12"
-          md="6"
-          lg="4"
-          class="pa-0">
-          <oauth-administration-cors-origins
-            :origins="origins"
-            :allow-all-origins="allowAllOrigins"
-            :cimd-uris="cimdUris"
-            :allow-all-cimd-uris="allowAllCimdUris"
-            :clients="clients"
-            class="mt-5"
-            @add-origin="addOrigin"
-            @remove-origin="removeOrigin"
-            @allow-all="changeAllowAllOrigins" />
-        </v-col>
-      </v-row>
+      <div class="text-title mb-4">
+        {{ $t('oauth.administration.title') }}
+      </div>
+      <div class="text-header mb-2">
+        {{ $t('oauth.administration.permissions') }}
+      </div>
+      <oauth-administration-dcr-redirect-uris
+        :redirect-uris="redirectUris"
+        :allow-all-redirect-uris="allowAllRedirectUris"
+        class="mb-2"
+        @redirect-uris-updated="handleRedirectUrisUpdated" />
+      <oauth-administration-cimd-uris
+        :cimd-uris="cimdUris"
+        :allow-all-cimd-uris="allowAllCimdUris"
+        class="mb-2"
+        @add-cimd-uri="addCimdUri"
+        @remove-cimd-uri="removeCimdUri"
+        @allow-all="changeAllowAllCimdUris" />
+      <oauth-administration-cors-origins
+        :origins="origins"
+        :allow-all-origins="allowAllOrigins"
+        :cimd-uris="cimdUris"
+        :allow-all-cimd-uris="allowAllCimdUris"
+        :clients="clients"
+        class="mb-2"
+        @add-origin="addOrigin"
+        @remove-origin="removeOrigin"
+        @allow-all="changeAllowAllOrigins" />
+      <div class="text-header my-4">
+        {{ $t('oauth.administration.oAuthClients') }}
+      </div>
       <oauth-administration-clients
         :clients="clients"
         :scopes="orderedScopes"
@@ -182,12 +169,12 @@ export default {
         this.loading = false;
       }
     },
-    async addRedirectUri(uri) {
+    async handleRedirectUrisUpdated() {
       this.loading = true;
       try {
-        await this.$oAuthSettingService.addAllowedRedirectUri(uri);
         this.redirectUris = await this.$oAuthSettingService.getAllowedRedirectUris();
-        this.$root.$emit('alert-message', this.$t('oauth.administration.clientsSelfRegistrationAllowedSelfRegistration.added'), 'success');
+        this.allowAllOrigins = await this.$oAuthSettingService.isAllowAllOrigins();
+        this.allowAllRedirectUris = await this.$oAuthSettingService.isAllowAllRedirectUris();
       } finally {
         this.loading = false;
       }
