@@ -71,7 +71,7 @@
               </template>
             </v-text-field>
           </v-form>
-          <v-list class="pa-0" dense>
+          <v-list class="pa-0 mt-2" dense>
             <v-list-item
               v-for="u in uris"
               :key="u"

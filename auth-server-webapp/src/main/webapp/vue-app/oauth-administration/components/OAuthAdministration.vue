@@ -28,20 +28,17 @@
       <oauth-administration-dcr-redirect-uris
         :redirect-uris="redirectUris"
         :allow-all-redirect-uris="allowAllRedirectUris"
-        class="mb-2"
         @redirect-uris-updated="handleRedirectUrisUpdated" />
       <oauth-administration-cimd-uris
         :cimd-uris="cimdUris"
         :allow-all-cimd-uris="allowAllCimdUris"
-        class="mb-2"
         @cimd-uris-updated="handleCimdUrisUpdated" />
       <oauth-administration-cors-origins
         :origins="origins"
         :allow-all-origins="allowAllOrigins"
-        :cimd-uris="cimdUris"
-        :allow-all-cimd-uris="allowAllCimdUris"
+        :redirect-uris="redirectUris"
+        :allow-all-redirect-uris="allowAllRedirectUris"
         :clients="clients"
-        class="mb-2"
         @origins-updated="handleOriginsUpdated" />
       <div class="text-header my-4">
         {{ $t('oauth.administration.oAuthClients') }}
