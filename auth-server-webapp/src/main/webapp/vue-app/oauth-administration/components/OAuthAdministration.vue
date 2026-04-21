@@ -52,7 +52,7 @@
       <oauth-administration-client-drawer
         ref="drawer"
         :scopes="orderedScopes"
-        @refresh-clients="refreshClients" />
+        @saved="refreshClients" />
     </main>
   </v-app>
 </template>

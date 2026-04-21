@@ -32,6 +32,7 @@ import OauthAdministrationClient from './components/clients/Client.vue';
 import OauthAdministrationClientRedirectUris from './components/clients/ClientRedirectUris.vue';
 import OauthAdministrationClientScopes from './components/clients/ClientScopes.vue';
 import OauthAdministrationClientLogo from './components/clients/ClientLogo.vue';
+import OauthAdministrationClientLogoInput from './components/clients/ClientLogoInput.vue';
 import OauthAdministrationClientDrawer from './components/clients/drawer/ClientDrawer.vue';
 
 const components = {
@@ -51,6 +52,7 @@ const components = {
   'oauth-administration-client-redirect-uris': OauthAdministrationClientRedirectUris,
   'oauth-administration-client-scopes': OauthAdministrationClientScopes,
   'oauth-administration-client-logo': OauthAdministrationClientLogo,
+  'oauth-administration-client-logo-input': OauthAdministrationClientLogoInput,
   'oauth-administration-client-drawer': OauthAdministrationClientDrawer,
 };
 
