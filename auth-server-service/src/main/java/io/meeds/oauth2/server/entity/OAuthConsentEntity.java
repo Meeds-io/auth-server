@@ -22,7 +22,6 @@ import java.time.Instant;
 import java.util.Set;
 
 import org.springframework.data.annotation.CreatedDate;
-import org.springframework.data.annotation.LastModifiedDate;
 
 import io.meeds.oauth2.server.util.JsonSetConverter;
 
@@ -33,7 +32,6 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.PrePersist;
-import jakarta.persistence.PreUpdate;
 import jakarta.persistence.SequenceGenerator;
 import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
@@ -67,20 +65,9 @@ public class OAuthConsentEntity {
   @Column(name = "CREATED_DATE")
   private Instant     createdDate;
 
-  @LastModifiedDate
-  @Column(name = "LAST_USED_DATE")
-  private Instant     lastUsedDate;
-
   @PrePersist
   void onCreate() {
-    Instant now = Instant.now();
-    this.createdDate = now;
-    this.lastUsedDate = now;
-  }
-
-  @PreUpdate
-  void onUpdate() {
-    this.lastUsedDate = Instant.now();
+    this.createdDate = Instant.now();
   }
 
 }

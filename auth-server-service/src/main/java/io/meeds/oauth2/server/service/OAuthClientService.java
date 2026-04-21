@@ -179,7 +179,7 @@ public class OAuthClientService {
       // Allow creation Only on Self-Registration
       saveClient(clientToSave);
       updateClientActivation(clientToSave.getClientId(), true);
-      log.info("[DCR] Self Register Client: '{}'", clientToSave);
+      log.info("Self Register Client: '{}'", clientToSave);
     } else {
       // No modifications allowed since only Public clients is allowed, just
       // logging

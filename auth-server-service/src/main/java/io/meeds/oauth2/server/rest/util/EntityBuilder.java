@@ -18,13 +18,14 @@
  */
 package io.meeds.oauth2.server.rest.util;
 
-import static io.meeds.oauth2.server.util.EntityMapper.*;
+import static io.meeds.oauth2.server.util.EntityMapper.CLIENT_DISPLAYED_SETTING;
 import static io.meeds.oauth2.server.util.EntityMapper.CLIENT_ENABLED_SETTING;
 import static io.meeds.oauth2.server.util.EntityMapper.CLIENT_LOGO_URI_SETTING;
 import static io.meeds.oauth2.server.util.EntityMapper.CLIENT_POLICY_URI_SETTING;
 import static io.meeds.oauth2.server.util.EntityMapper.CLIENT_SERVICE_SETTING;
 import static io.meeds.oauth2.server.util.EntityMapper.CLIENT_SYSTEM_SETTING;
 import static io.meeds.oauth2.server.util.EntityMapper.CLIENT_URI_SETTING;
+import static io.meeds.oauth2.server.util.EntityMapper.CLIENT_UUID_SETTING;
 
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.security.oauth2.core.AuthorizationGrantType;
@@ -40,7 +41,7 @@ public class EntityBuilder {
     // Private Class
   }
 
-  public static OAuthClientRestEntity toPublicClientRestEntity(RegisteredClient client) {
+  public static OAuthClientRestEntity toClientRestEntity(RegisteredClient client) {
     if (client == null || isServiceClient(client)) {
       return null;
     } else {
@@ -58,7 +59,7 @@ public class EntityBuilder {
     }
   }
 
-  public static RegisteredClient fromPublicClientRestEntity(OAuthClientRestEntity entity) {
+  public static RegisteredClient fromClientRestEntity(OAuthClientRestEntity entity) {
     if (entity == null) {
       return null;
     } else {
