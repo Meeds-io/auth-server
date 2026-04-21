@@ -37,6 +37,7 @@
         <v-alert
           v-if="allowAll"
           type="warning"
+          icon="warning"
           outlined>
           <div v-sanitized-html="warningMessage" class="paragraph text-body"></div>
         </v-alert>

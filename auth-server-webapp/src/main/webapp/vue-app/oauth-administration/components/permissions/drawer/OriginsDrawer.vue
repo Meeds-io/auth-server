@@ -45,7 +45,7 @@
                 v-if="allowAllRedirectUris"
                 size="18"
                 color="primary"
-                class="ms-2">
+                class="ms-2 mb-1">
                 fa-info-circle
               </v-icon>
             </div>
@@ -55,6 +55,7 @@
         <v-alert
           v-if="allowAll"
           type="warning"
+          icon="warning"
           outlined>
           <div v-sanitized-html="warningMessage" class="paragraph text-body"></div>
         </v-alert>

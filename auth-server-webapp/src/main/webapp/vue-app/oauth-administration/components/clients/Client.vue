@@ -294,18 +294,6 @@ export default {
         this.loading.deleteClient = false;
       }
     },
-    async createClient() {
-      const client = await this.$oAuthClientService.createClient({
-        name: this.clientName,
-        url: this.clientUrl,
-        logoUrl: this.clientLogoUrl,
-        redirectUris: this.clientRedirectUris,
-        scopes: this.clientScopes,
-        enabled: this.clientEnabled,
-        displayed: this.clientDisplayed,
-      });
-      this.$emit('created', client);
-    },
   },
 };
 </script>
