@@ -18,31 +18,28 @@
  */
 package io.meeds.oauth2.server.plugin;
 
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
-import org.exoplatform.commons.exception.ObjectNotFoundException;
 import org.exoplatform.portal.config.UserACL;
 import org.exoplatform.services.security.Identity;
-import org.exoplatform.social.attachment.AttachmentPlugin;
-import org.exoplatform.social.attachment.AttachmentService;
+
+import io.meeds.portal.plugin.AclPlugin;
 
 import jakarta.annotation.PostConstruct;
 
 @Component
-public class OAuthClientAttachmentPlugin extends AttachmentPlugin {
+public class OAuthClientAclPlugin implements AclPlugin {
 
-  public static final String OBJECT_TYPE = OAuthClientAclPlugin.OBJECT_TYPE;
+  public static final String OBJECT_TYPE = "oauthClient";
 
   @Autowired
   private UserACL            userAcl;
 
-  @Autowired
-  private AttachmentService  attachmentService;
-
   @PostConstruct
   public void init() {
-    attachmentService.addPlugin(this);
+    userAcl.addAclPlugin(this);
   }
 
   @Override
@@ -51,23 +48,13 @@ public class OAuthClientAttachmentPlugin extends AttachmentPlugin {
   }
 
   @Override
-  public boolean hasAccessPermission(Identity userIdentity, String settingName) throws ObjectNotFoundException {
-    return userAcl.hasAccessPermission(OBJECT_TYPE, settingName, userIdentity.getUserId());
-  }
-
-  @Override
-  public boolean hasEditPermission(Identity userIdentity, String settingName) throws ObjectNotFoundException {
-    return userAcl.hasEditPermission(OBJECT_TYPE, settingName, userIdentity.getUserId());
-  }
-
-  @Override
-  public long getAudienceId(String settingName) throws ObjectNotFoundException {
-    return 0;
-  }
-
-  @Override
-  public long getSpaceId(String settingName) throws ObjectNotFoundException {
-    return 0;
+  public boolean hasPermission(String objectId, String permissionType, Identity userIdentity) {
+    if (StringUtils.equals(permissionType, VIEW_PERMISSION_TYPE)) {
+      // Public clients read-only
+      return true;
+    } else {
+      return userAcl.isAdministrator(userIdentity);
+    }
   }
 
 }

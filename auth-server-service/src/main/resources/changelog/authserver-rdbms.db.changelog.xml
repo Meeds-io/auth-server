@@ -199,4 +199,8 @@
     </createIndex>
   </changeSet>
 
+  <changeSet author="authserver" id="1.0.0-9-aiMIP-159">
+    <dropColumn tableName="AUTH_SERVER_AUTHORIZATION_CONSENT" columnName="LAST_USED_DATE" />
+  </changeSet>
+
 </databaseChangeLog>

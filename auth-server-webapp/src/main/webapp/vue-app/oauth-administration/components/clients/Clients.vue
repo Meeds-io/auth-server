@@ -32,7 +32,7 @@
             id="applicationToolbarLeftButton"
             :aria-label="$t('oauth.administration.client.add')"
             class="btn btn-primary text-truncate"
-            @click="$emit('create-client')">
+            @click="$refs.drawer.open()">
             <v-icon size="18">fa-plus</v-icon>
             <span class="text-truncate text-none ms-2">
               {{ $t('oauth.administration.client.add') }}
@@ -52,17 +52,22 @@
             v-for="client in props.items"
             :key="client.uuid"
             cols="12"
-            lg="6">
+            sm="2"
+            md="4">
             <oauth-administration-client
               :client="client"
               :scopes="scopes"
               class="border-color border-radius pa-5"
-              @refresh="$emit('refresh-client', client.uuid)"
-              @refresh-all="$emit('refresh-clients')" />
+              @edit="$refs.drawer.open(client)"
+              @deleted="$emit('refresh')" />
           </v-col>
         </v-row>
       </template>
     </v-data-iterator>
+    <oauth-administration-client-drawer
+      ref="drawer"
+      :scopes="scopes"
+      @saved="$emit('refresh')" />
   </div>
 </template>
 <script>

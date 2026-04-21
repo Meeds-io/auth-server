@@ -18,8 +18,8 @@
  */
 package io.meeds.oauth2.server.rest;
 
-import static io.meeds.oauth2.server.rest.util.EntityBuilder.fromPublicClientRestEntity;
-import static io.meeds.oauth2.server.rest.util.EntityBuilder.toPublicClientRestEntity;
+import static io.meeds.oauth2.server.rest.util.EntityBuilder.fromClientRestEntity;
+import static io.meeds.oauth2.server.rest.util.EntityBuilder.toClientRestEntity;
 
 import java.security.Principal;
 import java.util.List;
@@ -74,7 +74,7 @@ public class OAuthClientRest {
     try {
       return oAuthClientService.getClients(principal.getName(), includeAll)
                                .stream()
-                               .map(EntityBuilder::toPublicClientRestEntity)
+                               .map(EntityBuilder::toClientRestEntity)
                                .filter(Objects::nonNull)
                                .toList();
     } catch (IllegalAccessException e) {
@@ -97,7 +97,7 @@ public class OAuthClientRest {
                                          boolean includeAll) {
     try {
       RegisteredClient client = oAuthClientService.getClient(clientId, includeAll, principal.getName());
-      OAuthClientRestEntity clientRestEntity = toPublicClientRestEntity(client);
+      OAuthClientRestEntity clientRestEntity = toClientRestEntity(client);
       if (clientRestEntity == null) {
         throw new ResponseStatusException(HttpStatus.NOT_FOUND);
       } else {
@@ -136,9 +136,9 @@ public class OAuthClientRest {
                                             @RequestBody
                                             OAuthClientRestEntity oAuthClient) {
     try {
-      RegisteredClient client = fromPublicClientRestEntity(oAuthClient);
+      RegisteredClient client = fromClientRestEntity(oAuthClient);
       RegisteredClient createdClient = oAuthClientService.createClient(client);
-      return toPublicClientRestEntity(createdClient);
+      return toClientRestEntity(createdClient);
     } catch (ObjectAlreadyExistsException e) {
       throw new ResponseStatusException(HttpStatus.CONFLICT, e.getMessage());
     }

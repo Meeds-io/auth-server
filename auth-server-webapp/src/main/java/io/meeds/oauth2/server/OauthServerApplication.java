@@ -52,7 +52,7 @@ import jakarta.servlet.ServletException;
 @PropertySource({
   "classpath:application.properties",
   "classpath:application-common.properties",
-  "classpath:authserver.properties"
+  "classpath:auth-server.properties"
 })
 public class OauthServerApplication extends SpringBootServletInitializer {
 

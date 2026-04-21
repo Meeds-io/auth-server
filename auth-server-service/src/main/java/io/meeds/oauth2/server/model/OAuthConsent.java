@@ -24,6 +24,5 @@ import java.util.Set;
 public record OAuthConsent(String clientId,
                            String username,
                            Set<String> scopes,
-                           Instant createdDate,
-                           Instant lastUsedDate) {
+                           Instant createdDate) {
 }
