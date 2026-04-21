@@ -44,6 +44,10 @@ public class OAuthEventType {
 
   public static final String CLIENT_AUTHORIZATION_DELETED             = "oauth.client.authorizations.deleted";
 
+  public static final String CONSENT_USED                             = "oauth.consend.used";
+
+  public static final String TOKEN_USED                               = "oauth.token.used";
+
   public static final String ALLOWED_REDIRECT_URIS_ALL_MODIFIED_EVENT = "meeds.oauth.redirect-uri.all.modified";
 
   public static final String ALLOWED_REDIRECT_URI_ADDED_EVENT         = "meeds.oauth.redirect-uri.added";

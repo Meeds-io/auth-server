@@ -120,7 +120,6 @@
             <v-list-item-action class="my-auto ms-1 me-n1">
               <v-btn
                 :title="$t('oauth.administration.client.redirectUris.delete')"
-                :disabled="loading"
                 icon
                 @click="removeRedirectUri(u)">
                 <v-icon
@@ -196,6 +195,7 @@ export default {
   data: () => ({
     drawer: false,
     isValid: false,
+    loading: false,
     isNew: false,
     client: null,
     originalClient: null,

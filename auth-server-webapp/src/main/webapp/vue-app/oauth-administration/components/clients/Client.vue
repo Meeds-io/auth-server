@@ -18,131 +18,71 @@
 -->
 <template>
   <v-hover v-slot="{ hover }">
-    <v-card :class="hover && !create ? 'elevation-2' : 'elevation-0'">
+    <v-card :class="hover ? 'elevation-2' : 'elevation-0'" class="position-relative">
       <div class="d-flex flex-nowrap align-center">
-        <oauth-administration-client-logo
-          :client="client"
-          :hover="hover || create"
-          :create="create"
-          @refresh="$emit('refresh')"
-          @logo-updated="clientLogoUrl = $event" />
-        <div class="flex-grow-1">
-          <v-text-field
-            v-model="clientName"
-            :aria-label="$t('oauth.administration.client.name')"
-            :placeholder="$t('oauth.administration.client.namePlaceholder')"
-            :readonly="!clientNameEdit && !create"
-            name="clientName"
-            class="pt-0 mb-2 border-box-sizing"
-            type="text"
-            outlined
-            dense
-            solo
-            flat
-            @keypress.escape="clientNameEdit = false"
-            @keypress.enter="editClientName">
-            <template v-if="hover && !create" #append>
-              <v-btn
-                :title="$t('oauth.administration.client.editName')"
-                :loading="loading.name"
-                class="me-n2"
-                icon
-                @click="editClientName">
-                <v-icon
-                  color="primary"
-                  size="18">
-                  {{ clientNameEdit ? 'fa-save' : 'fa-edit' }}
-                </v-icon>
-              </v-btn>
-            </template>
-          </v-text-field>
-          <v-text-field
-            v-model="clientUrl"
-            :aria-label="$t('oauth.administration.client.url')"
-            :placeholder="$t('oauth.administration.client.urlPlaceholder')"
-            :readonly="!clientUrlEdit && !create"
-            name="clientUrl"
-            class="pt-0 mb-2 border-box-sizing"
-            type="text"
-            outlined
-            dense
-            solo
-            flat
-            @keypress.enter="editClientUrl">
-            <template v-if="hover && !create" #append>
-              <v-btn
-                :title="$t('oauth.administration.client.editUrl')"
-                :loading="loading.url"
-                class="me-n2"
-                icon
-                @click="editClientUrl">
-                <v-icon
-                  color="primary"
-                  size="18">
-                  {{ clientUrlEdit ? 'fa-save' : 'fa-edit' }}
-                </v-icon>
-              </v-btn>
-            </template>
-          </v-text-field>
-          <date-format
-            v-if="client?.createdDate"
-            :value="client.createdDate"
-            :format="fullDateFormat"
-            class="text-body ms-1 pt-2px" />
+        <v-avatar
+          class="me-4"
+          size="36"
+          tile>
+          <v-img
+            v-if="client.logoUrl"
+            :src="client.logoUrl"
+            transition="none"
+            width="36"
+            max-height="36"
+            contain
+            eager />
+          <v-icon
+            v-else
+            size="36">
+            fa-key
+          </v-icon>
+        </v-avatar>
+        <div :title="client.name" class="text-title text-start text-truncate flex-grow-1">
+          {{ client.name }}
+        </div>
+        <div
+          v-if="hover"
+          class="d-flex flex-no-wrap me-n2 mt-n1">
+          <v-btn
+            :title="$t('oauth.administration.client.delete')"
+            :disabled="client.system"
+            color="error"
+            class="ms-2"
+            icon
+            small
+            @click="openDeleteConfirm">
+            <v-icon size="16">fa-trash</v-icon>
+          </v-btn>
+          <v-btn
+            :title="$t('oauth.administration.client.edit')"
+            class="ms-2"
+            icon
+            small
+            @click="$emit('edit')">
+            <v-icon size="16">fa-edit</v-icon>
+          </v-btn>
         </div>
       </div>
-      <v-row>
-        <v-col :md="small && 12 || 6" cols="12">
-          <oauth-administration-client-redirect-uris
-            :client="client"
-            :create="create"
-            @refresh="$emit('refresh')"
-            @redirect-uris-updated="clientRedirectUris = $event" />
-        </v-col>
-        <v-col :md="small && 12 || 6" cols="12">
-          <oauth-administration-client-scopes
-            :client="client"
-            :scopes="scopes"
-            :create="create"
-            @refresh="$emit('refresh')"
-            @scopes-updated="clientScopes = $event" />
-        </v-col>
-      </v-row>
-      <v-switch
-        v-model="clientEnabled"
-        :label="$t('oauth.administration.client.enabled')"
-        :loading="loading.enable"
-        name="scope"
-        class="font-weight-bold ms-0 mt-2"
-        on-icon="fa-check-square"
-        off-icon="far fa-square"
-        @change="updateClientActivation" />
-      <v-switch
-        v-model="clientDisplayed"
-        :label="$t('oauth.administration.client.displayToUsers')"
-        :loading="loading.display"
-        name="scope"
-        class="font-weight-bold ms-0 mt-2"
-        on-icon="fa-check-square"
-        off-icon="far fa-square"
-        @change="updateClientVisibility" />
-      <v-card-actions v-if="!create" class="d-flex justify-end align-center pa-0 ms-2">
-        <v-btn
-          :aria-label="$t('oauth.administration.client.delete')"
-          :loading="loading.deleteClient"
-          :disabled="client.system"
-          color="error"
-          outlined
-          small
-          @click="openDeleteConfirm">
-          <v-icon
-            size="20"
-            class="me-1 ms-n1">
-            fa-times
-          </v-icon>
-          {{ $t('oauth.administration.client.delete') }}
-        </v-btn>
-      </v-card-actions>
+      <div class="d-flex align-center mt-8">
+        <v-icon
+          color="primary"
+          size="20"
+          class="me-2">
+          fa-bolt
+        </v-icon>
+        {{ $t('oauth.administration.lastUse') }}
+        <div class="ms-1">
+          <date-format
+            v-if="lastUsedDate"
+            :value="lastUsedDate"
+            :format="fullDateFormat"
+            class="text-body" />
+          <span v-else class="text-subtitle">
+            {{ $t('oauth.administration.notUsedYet') }}
+          </span>
+        </div>
+      </div>
       <confirm-dialog
         v-if="deleteConfirm"
         ref="confirmDialog"
@@ -170,30 +110,11 @@ export default {
       type: Boolean,
       default: false,
     },
-    create: {
-      type: Boolean,
-      default: false,
-    },
   },
   data: () => ({
-    loading: {
-      enable: false,
-      name: false,
-      url: false,
-      logoUrl: false,
-      display: false,
-      deleteClient: false,
-    },
-    clientName: null,
-    clientNameEdit: false,
-    clientUrl: null,
-    clientUrlEdit: false,
-    clientLogoUrl: null,
-    clientRedirectUris: null,
-    clientScopes: null,
-    clientEnabled: false,
-    clientDisplayed: false,
+    loading: false,
     deleteConfirm: false,
+    lastUsedDate: null,
     fullDateFormat: {
       day: 'numeric',
       month: 'short',
@@ -202,96 +123,27 @@ export default {
       minute: '2-digit',
     }
   }),
-  computed: {
-    clientId() {
-      return this.client?.uuid;
-    },
-  },
-  watch: {
-    client: {
-      immediate: true,
-      deep: true,
-      handler() {
-        if (this.client) {
-          this.clientName = this.client.name;
-          this.clientUrl = this.client.url;
-          this.clientLogoUrl = this.client.logoUrl;
-          this.clientEnabled = this.client.enabled;
-          this.clientDisplayed = this.client.displayed;
-        }
-      },
-    },
+  async created() {
+    try {
+      this.lastUsedDate = await this.$oAuthClientService.getClientLastUsage(this.client.uuid);
+    } catch {
+      this.lastUsedDate = null;
+    }
   },
   methods: {
-    async editClientName() {
-      if (this.clientNameEdit) {
-        this.loading.name = true;
-        try {
-          await this.$oAuthClientService.updateClientName(this.clientId, this.clientName || this.client.name);
-          this.$emit('refresh');
-          this.$root.$emit('alert-message', this.$t('oauth.administration.client.name.updated'), 'success');
-        } finally {
-          this.loading.name = false;
-        }
-        this.clientNameEdit = false;
-      } else {
-        this.clientNameEdit = true;
-      }
-    },
-    async editClientUrl() {
-      if (this.clientUrlEdit) {
-        this.loading.url = true;
-        try {
-          await this.$oAuthClientService.updateClientUrl(this.clientId, this.clientUrl);
-          this.$emit('refresh');
-          this.$root.$emit('alert-message', this.$t('oauth.administration.client.url.updated'), 'success');
-        } finally {
-          this.loading.url = false;
-        }
-        this.clientUrlEdit = false;
-      } else {
-        this.clientUrlEdit = true;
-      }
-    },
-    async updateClientActivation() {
-      if (!this.clientId) {
-        return;
-      }
-      this.loading.enable = true;
-      try {
-        await this.$oAuthClientService.updateClientActivation(this.clientId, this.clientEnabled);
-        this.$emit('refresh');
-        this.$root.$emit('alert-message', this.clientEnabled ? this.$t('oauth.administration.client.enabledSuccess') : this.$t('oauth.administration.client.disabledSuccess'), 'success');
-      } finally {
-        this.loading.enable = false;
-      }
-    },
-    async updateClientVisibility() {
-      if (!this.clientId) {
-        return;
-      }
-      this.loading.display = true;
-      try {
-        await this.$oAuthClientService.updateClientVisibility(this.clientId, this.clientDisplayed);
-        this.$emit('refresh');
-        this.$root.$emit('alert-message', this.clientDisplayed ? this.$t('oauth.administration.client.displayedSuccess') : this.$t('oauth.administration.client.hiddenSuccess'), 'success');
-      } finally {
-        this.loading.display = false;
-      }
-    },
     async openDeleteConfirm() {
       this.deleteConfirm = true;
       await this.$nextTick();
       this.$refs.confirmDialog.open();
     },
     async deleteClient() {
-      this.loading.deleteClient = true;
+      this.loading = true;
       try {
-        await this.$oAuthClientService.deleteClient(this.clientId);
-        this.$emit('refresh-all');
+        await this.$oAuthClientService.deleteClient(this.client?.uuid);
+        this.$emit('deleted');
         this.$root.$emit('alert-message', this.$t('oauth.administration.client.deleteSuccess'), 'success');
       } finally {
-        this.loading.deleteClient = false;
+        this.loading = false;
       }
     },
   },
