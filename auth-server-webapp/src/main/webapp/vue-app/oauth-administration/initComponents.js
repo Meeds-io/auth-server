@@ -24,6 +24,7 @@ import OauthAdministrationCorsOrigins from './components/permissions/CorsOrigins
 import OauthAdministrationCimdUris from './components/permissions/CimdUris.vue';
 
 import OauthAdministrationDcrRedirectUrisDrawer from './components/permissions/drawer/DcrRedirectUrisDrawer.vue';
+import OauthAdministrationCimdUrisDrawer from './components/permissions/drawer/CimdUrisDrawer.vue';
 
 import OauthAdministrationClients from './components/clients/Clients.vue';
 import OauthAdministrationClient from './components/clients/Client.vue';
@@ -38,6 +39,7 @@ const components = {
   'oauth-administration-dcr-redirect-uris': OauthAdministrationDcrRedirectUris,
   'oauth-administration-dcr-redirect-uris-drawer': OauthAdministrationDcrRedirectUrisDrawer,
   'oauth-administration-cimd-uris': OauthAdministrationCimdUris,
+  'oauth-administration-cimd-uris-drawer': OauthAdministrationCimdUrisDrawer,
   'oauth-administration-cors-origins': OauthAdministrationCorsOrigins,
 
   'oauth-administration-clients': OauthAdministrationClients,
