@@ -52,8 +52,14 @@
           </template>
           <span>{{ $t('oauth.administration.clientsAllowedCorsOrigins.input.disabled') }}</span>
         </v-tooltip>
+        <v-alert
+          v-if="allowAll"
+          type="warning"
+          outlined>
+          <div v-sanitized-html="warningMessage" class="paragraph text-body"></div>
+        </v-alert>
         <v-card
-          v-if="!allowAll"
+          v-else
           max-width="min(560px, 100%)"
           flat>
           <v-form
@@ -209,6 +215,9 @@ export default {
         });
       }
       return Array.from(origins);
+    },
+    warningMessage() {
+      return this.$t('oauth.administration.clientsAllowedCorsOrigins.allowAny.warning').replaceAll('\\n', '\n');
     },
   },
   methods: {

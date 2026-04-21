@@ -34,8 +34,14 @@
           v-model="allowAll"
           :label="$t('oauth.administration.clientsSelfRegistrationDCR.allowAny')"
           class="ma-0" />
+        <v-alert
+          v-if="allowAll"
+          type="warning"
+          outlined>
+          <div v-sanitized-html="warningMessage" class="paragraph text-body"></div>
+        </v-alert>
         <v-card
-          v-if="!allowAll"
+          v-else
           max-width="min(560px, 100%)"
           flat>
           <v-form
@@ -146,6 +152,9 @@ export default {
     modified() {
       return this.allowAll !== this.allowAllRedirectUris
         || JSON.stringify(this.redirectUris || []) !== JSON.stringify(this.uris || []);
+    },
+    warningMessage() {
+      return this.$t('oauth.administration.clientsSelfRegistrationDCR.allowAny.warning').replaceAll('\\n', '\n');
     },
   },
   methods: {

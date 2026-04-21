@@ -34,8 +34,14 @@
           v-model="allowAll"
           :label="$t('oauth.administration.clientsSelfRegistrationCIMD.allowAny')"
           class="ma-0" />
+        <v-alert
+          v-if="allowAll"
+          type="warning"
+          outlined>
+          <div v-sanitized-html="warningMessage" class="paragraph text-body"></div>
+        </v-alert>
         <v-card
-          v-if="!allowAll"
+          v-else
           max-width="min(560px, 100%)"
           flat>
           <v-form
@@ -133,6 +139,7 @@ export default {
     expanded: false,
     allowAll: false,
     isValid: false,
+    confirmDialog: false,
     uris: null,
     uri: null,
   }),
@@ -146,6 +153,9 @@ export default {
     modified() {
       return this.allowAll !== this.allowAllCimdUris
         || JSON.stringify(this.cimdUris || []) !== JSON.stringify(this.uris || []);
+    },
+    warningMessage() {
+      return this.$t('oauth.administration.clientsSelfRegistrationCIMD.allowAny.warning').replaceAll('\\n', '\n');
     },
   },
   methods: {
