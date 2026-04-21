@@ -18,9 +18,6 @@
 -->
 <template>
   <div>
-    <div class="text-header mt-4 mb-2">
-      {{ $t('oauth.administration.clients.title') }}
-    </div>
     <div class="mx-n4">
       <application-toolbar
         :right-text-filter="{
