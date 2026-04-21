@@ -46,13 +46,7 @@
       <oauth-administration-clients
         :clients="clients"
         :scopes="orderedScopes"
-        @create-client="$refs.drawer.open()"
-        @refresh-client="refreshClient"
-        @refresh-clients="refreshClients" />
-      <oauth-administration-client-drawer
-        ref="drawer"
-        :scopes="orderedScopes"
-        @saved="refreshClients" />
+        @refresh="refreshClients" />
     </main>
   </v-app>
 </template>

@@ -120,7 +120,6 @@
             <v-list-item-action class="my-auto ms-1 me-n1">
               <v-btn
                 :title="$t('oauth.administration.client.redirectUris.delete')"
-                :disabled="loading"
                 icon
                 @click="removeRedirectUri(u)">
                 <v-icon
@@ -196,6 +195,7 @@ export default {
   data: () => ({
     drawer: false,
     isValid: false,
+    loading: false,
     isNew: false,
     client: null,
     originalClient: null,
@@ -220,7 +220,7 @@ export default {
       return !this.client?.redirectUris?.length;
     },
     validUrl() {
-      return this.isValidUrl(this.uri);
+      return this.isValidUrl(this.uri) && !this.isUriExists(this.uri);
     },
     disabled() {
       return !this.client?.name?.trim?.()?.length || !this.client?.redirectUris?.length || !this.client?.scopes?.length;
@@ -260,8 +260,10 @@ export default {
       this.$refs.drawer.close();
     },
     addRedirectUri() {
-      this.client.redirectUris.push(this.uri.trim());
-      this.uri = null;
+      if (this.validUrl) {
+        this.client.redirectUris.push(this.uri.trim());
+        this.uri = null;
+      }
     },
     removeRedirectUri(uri) {
       this.client.redirectUris = this.client.redirectUris.filter(u => u !== uri);

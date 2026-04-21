@@ -47,6 +47,22 @@ export async function getClient(id, includeAll) {
   }
 }
 
+export async function getClientLastUsage(id, username) {
+  const formData = new FormData();
+  if (username) {
+    formData.append('username', username);
+  }
+  const params = new URLSearchParams(formData).toString();
+  const resp = await fetch(`/analytics/rest/oauth/consent/${id}/last-usage?${params}`, {
+    credentials: 'include',
+  });
+  if (resp?.ok) {
+    return await resp.text();
+  } else {
+    throw new Error('Server Request Error');
+  }
+}
+
 // Admin only
 export async function createClient(client) {
   const resp = await fetch('/auth-server/rest/clients', {

@@ -25,8 +25,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 import io.meeds.oauth2.server.entity.OAuthConsentEntity;
 
-import jakarta.transaction.Transactional;
-
 public interface OAuthConsentDao extends JpaRepository<OAuthConsentEntity, Long> {
 
   Optional<OAuthConsentEntity> findByPrincipalNameAndRegisteredClientId(String username, String clientId);
@@ -34,8 +32,5 @@ public interface OAuthConsentDao extends JpaRepository<OAuthConsentEntity, Long>
   List<OAuthConsentEntity> findByRegisteredClientId(String clientId);
 
   List<OAuthConsentEntity> findByPrincipalName(String username);
-
-  @Transactional
-  void deleteByPrincipalNameAndRegisteredClientId(String username, String clientId);
 
 }

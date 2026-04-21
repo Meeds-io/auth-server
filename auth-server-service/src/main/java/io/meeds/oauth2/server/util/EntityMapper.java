@@ -40,6 +40,7 @@ import org.springframework.security.oauth2.server.authorization.OAuth2Authorizat
 import org.springframework.security.oauth2.server.authorization.OAuth2AuthorizationConsent;
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClient;
 import org.springframework.security.oauth2.server.authorization.settings.ClientSettings;
+import org.springframework.security.oauth2.server.authorization.settings.ClientSettings.Builder;
 import org.springframework.security.oauth2.server.authorization.settings.TokenSettings;
 
 import io.meeds.oauth2.server.entity.OAuthClientEntity;
@@ -71,6 +72,8 @@ public class EntityMapper {
 
   public static final String       CLIENT_IS_CIMD_SETTING    = "is_cimd";
 
+  public static final String       CLIENT_CREATION_DATE      = "creation_date";
+
   private static final String      TOKEN_NAME_SETTING        = "token_name";
 
   public static final List<String> CUSTOM_CLIENT_METADATA    = List.of(CLIENT_LOGO_URI_SETTING,
@@ -95,21 +98,21 @@ public class EntityMapper {
                      && Boolean.parseBoolean(entity.getClientSettings()
                                                    .get(CLIENT_SYSTEM_SETTING)
                                                    .toString());
+    Builder clientSettingsBuilder = ClientSettings.withSettings(entity.getClientSettings())
+                                                  .setting(CLIENT_ENABLED_SETTING,
+                                                           entity.isEnabled())
+                                                  .setting(CLIENT_DISPLAYED_SETTING, displayed)
+                                                  .setting(CLIENT_SYSTEM_SETTING, system)
+                                                  .setting(CLIENT_UUID_SETTING, entity.getClientId())
+                                                  .setting(CLIENT_CREATION_DATE, entity.getCreatedDate().toString())
+                                                  .requireAuthorizationConsent(true)
+                                                  .requireProofKey(true);
     RegisteredClient.Builder builder = RegisteredClient.withId(entity.getRegisteredClientId())
                                                        .clientId(entity.getRegisteredClientId())
                                                        .clientName(entity.getClientName())
                                                        .clientIdIssuedAt(entity.getClientIssuedAt())
                                                        .clientAuthenticationMethods(m -> m.addAll(toClientAuthenticationMethods(entity.getClientAuthenticationMethods())))
-                                                       .clientSettings(ClientSettings.withSettings(entity.getClientSettings())
-                                                                                     .setting(CLIENT_ENABLED_SETTING,
-                                                                                              entity.isEnabled())
-                                                                                     .setting(CLIENT_DISPLAYED_SETTING, displayed)
-                                                                                     .setting(CLIENT_SYSTEM_SETTING, system)
-                                                                                     .setting(CLIENT_UUID_SETTING,
-                                                                                              entity.getClientId())
-                                                                                     .requireAuthorizationConsent(true)
-                                                                                     .requireProofKey(true)
-                                                                                     .build())
+                                                       .clientSettings(clientSettingsBuilder.build())
                                                        .tokenSettings(TokenSettings.withSettings(entity.getTokenSettings())
                                                                                    .build());
     if (entity.getClientSecret() != null && !entity.getClientSecret().isBlank()) {
@@ -298,8 +301,7 @@ public class EntityMapper {
     return new OAuthConsent(entity.getRegisteredClientId(),
                             entity.getPrincipalName(),
                             entity.getAuthorities(),
-                            entity.getCreatedDate(),
-                            entity.getLastUsedDate());
+                            entity.getCreatedDate());
   }
 
   public static void toEntity(OAuth2AuthorizationConsent authorizationConsent, OAuthConsentEntity entity) {

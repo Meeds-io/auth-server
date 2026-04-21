@@ -80,10 +80,10 @@ export default {
   }),
   computed: {
     imageSrc() {
-      if (this.logoUrl) {
-        return this.logoUrl;
+      if (this.imageData) {
+        return this.$utils.convertImageDataAsSrc(this.imageData);
       } else {
-        return this.imageData && this.$utils.convertImageDataAsSrc(this.imageData);
+        return this.logoUrl;
       }
     },
   },
