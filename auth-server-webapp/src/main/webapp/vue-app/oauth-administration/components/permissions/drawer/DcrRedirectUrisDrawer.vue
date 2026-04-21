@@ -26,13 +26,13 @@
     allow-expand
     no-x-scroll>
     <template #title>
-      {{ $t('oauth.administration.clientsSelfRegistrationAllowedSelfRegistration.drwerTitle') }}
+      {{ $t('oauth.administration.clientsSelfRegistrationDCR.drwerTitle') }}
     </template>
     <template v-if="drawer" #content>
       <div class="pa-5">
         <v-switch
           v-model="allowAll"
-          :label="$t('oauth.administration.clientsSelfRegistrationAllowedSelfRegistration.allowAny')"
+          :label="$t('oauth.administration.clientsSelfRegistrationDCR.allowAny')"
           class="ma-0" />
         <v-card
           v-if="!allowAll"
@@ -44,8 +44,8 @@
             @submit.prevent.stop="0">
             <v-text-field
               v-model="uri"
-              :aria-label="$t('oauth.administration.clientsSelfRegistrationAllowedSelfRegistration.inputTitle')"
-              :placeholder="$t('oauth.administration.clientsSelfRegistrationAllowedSelfRegistration.inputPlaceholder')"
+              :aria-label="$t('oauth.administration.clientsSelfRegistrationDCR.inputTitle')"
+              :placeholder="$t('oauth.administration.clientsSelfRegistrationDCR.inputPlaceholder')"
               :rules="rules"
               name="allowedRedirectUri"
               class="mt-4 pt-0 border-box-sizing"
@@ -58,7 +58,7 @@
               @keypress.enter="addRedirectUri">
               <template v-if="uri && isValid" #append>
                 <v-btn
-                  :title="$t('oauth.administration.clientsSelfRegistrationAllowedSelfRegistration.buttonTooltip')"
+                  :title="$t('oauth.administration.clientsSelfRegistrationDCR.buttonTooltip')"
                   class="me-n2"
                   icon
                   @click="addRedirectUri">
@@ -82,7 +82,7 @@
               </v-list-item-title>
               <v-list-item-action class="my-auto">
                 <v-btn
-                  :title="$t('oauth.administration.clientsSelfRegistrationAllowedSelfRegistration.deleteTooltip')"
+                  :title="$t('oauth.administration.clientsSelfRegistrationDCR.deleteTooltip')"
                   icon
                   @click="removeRedirectUri(u)">
                   <v-icon
@@ -140,7 +140,7 @@ export default {
     rules() {
       return [
         v => !!v?.length && (this.isValidUrl(v) || this.$t('oauth.administration.invalidUrl')),
-        v => !!v?.length && (!this.isUriExists(v) || this.$t('oauth.administration.clientsSelfRegistrationAllowedSelfRegistration.alreadyExists')),
+        v => !!v?.length && (!this.isUriExists(v) || this.$t('oauth.administration.clientsSelfRegistrationDCR.alreadyExists')),
       ];
     },
     modified() {
@@ -193,7 +193,7 @@ export default {
             await Promise.all(urisToRemove.map(this.$oAuthSettingService.removeAllowedRedirectUri));
           }
         }
-        this.$root.$emit('alert-message', this.$t('oauth.administration.clientsSelfRegistrationAllowedSelfRegistration.saved'), 'success');
+        this.$root.$emit('alert-message', this.$t('oauth.administration.clientsSelfRegistrationDCR.saved'), 'success');
         this.$emit('saved');
         this.close();
       } finally {
