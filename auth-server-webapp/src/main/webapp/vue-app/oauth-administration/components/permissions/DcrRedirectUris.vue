@@ -20,8 +20,8 @@
   <div>
     <div class="d-flex justify-space-between">
       <help-label
-        label="oauth.administration.clientsSelfRegistrationAllowedSelfRegistration.title"
-        tooltip="oauth.administration.clientsSelfRegistrationAllowedSelfRegistration.tooltip"
+        label="oauth.administration.clientsSelfRegistrationDCR.title"
+        tooltip="oauth.administration.clientsSelfRegistrationDCR.tooltip"
         class="py-2">
         <template #helpContent>
           <div class="paragraph">{{ description }}</div>
@@ -54,7 +54,7 @@ export default {
   },
   computed: {
     description() {
-      return this.$t('oauth.administration.clientsSelfRegistrationAllowedSelfRegistration.description').replaceAll('\\n', '\n');
+      return this.$t('oauth.administration.clientsSelfRegistrationDCR.description').replaceAll('\\n', '\n');
     },
   },
 };
