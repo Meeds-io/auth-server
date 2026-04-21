@@ -18,75 +18,26 @@
 -->
 <template>
   <div>
-    <help-label
-      label="oauth.administration.clientsSelfRegistrationCIMD.title"
-      label-class="text-header"
-      class="text-header"
-      tooltip="oauth.administration.clientsSelfRegistrationCIMD.tooltip">
-      <template #helpContent>
-        <div class="paragraph">{{ description }}</div>
-      </template>
-    </help-label>
-    <v-switch
-      v-model="allowAll"
-      :label="$t('oauth.administration.clientsSelfRegistrationCIMD.allowAny')"
-      @change="changeAllowAll" />
-    <v-card
-      v-if="!allowAllCimdUris"
-      max-width="min(560px, 100%)"
-      flat>
-      <v-text-field
-        v-model="uri"
-        :aria-label="$t('oauth.administration.clientsSelfRegistrationCIMD.inputTitle')"
-        :placeholder="$t('oauth.administration.clientsSelfRegistrationCIMD.inputPlaceholder')"
-        name="allowedCimdUri"
-        class="pt-2 mb-2 border-box-sizing"
-        type="text"
-        outlined
-        dense
-        solo
-        flat
-        @click:append="addCimdUri"
-        @keypress.enter="addCimdUri">
-        <template #append>
-          <v-btn
-            class="me-n2"
-            icon
-            @click="addCimdUri">
-            <v-icon
-              color="primary"
-              size="18">
-              fa-plus
-            </v-icon>
-          </v-btn>
+    <div class="d-flex justify-space-between">
+      <help-label
+        label="oauth.administration.clientsSelfRegistrationCIMD.title"
+        tooltip="oauth.administration.clientsSelfRegistrationCIMD.tooltip"
+        class="py-2">
+        <template #helpContent>
+          <div class="paragraph">{{ description }}</div>
         </template>
-      </v-text-field>
-      <v-list dense>
-        <v-list-item
-          v-for="u in cimdUris"
-          :key="u"
-          :title="u"
-          class="ps-0 pe-2"
-          dense>
-          <v-list-item-title>
-            {{ u }}
-          </v-list-item-title>
-          <v-list-item-action class="my-auto">
-            <v-btn
-              :title="$t('oauth.administration.clientsSelfRegistrationCIMD.delete')"
-              icon
-              @click="removeCimdUri(u)">
-              <v-icon
-                color="primary"
-                size="18"
-                @click:append="removeCimdUri">
-                fa-minus
-              </v-icon>
-            </v-btn>
-          </v-list-item-action>
-        </v-list-item>
-      </v-list>
-    </v-card>
+      </help-label>
+      <v-btn
+        icon
+        @click="$refs.drawer.open()">
+        <v-icon size="18">fa-edit</v-icon>
+      </v-btn>
+    </div>
+    <oauth-administration-cimd-uris-drawer
+      ref="drawer"
+      :cimd-uris="cimdUris"
+      :allow-all-cimd-uris="allowAllCimdUris"
+      @saved="$emit('cimd-uris-updated')" />
   </div>
 </template>
 <script>
@@ -104,37 +55,6 @@ export default {
   computed: {
     description() {
       return this.$t('oauth.administration.clientsSelfRegistrationCIMD.description').replaceAll('\\n', '\n');
-    },
-  },
-  watch: {
-    allowAllCimdUris: {
-      immediate: true,
-      handler() {
-        this.allowAll = this.allowAllCimdUris;
-      },
-    },
-  },
-  data: () => ({
-    uri: null,
-    allowAll: false,
-  }),
-  methods: {
-    changeAllowAll() {
-      this.$emit('allow-all', this.allowAll);
-      this.uri = null;
-    },
-    addCimdUri() {
-      if (this.uri?.trim?.()?.length) {
-        if (this.cimdUris.includes(this.uri.trim())) {
-          this.$root.$emit('alert-message', this.$t('oauth.administration.clientsSelfRegistrationCIMD.alreadyExists'), 'warning');
-        } else {
-          this.$emit('add-cimd-uri', this.uri.trim());
-          this.uri = null;
-        }
-      }
-    },
-    removeCimdUri(uri) {
-      this.$emit('remove-cimd-uri', uri);
     },
   },
 };

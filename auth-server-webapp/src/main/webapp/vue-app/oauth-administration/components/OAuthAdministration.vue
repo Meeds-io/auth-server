@@ -34,9 +34,7 @@
         :cimd-uris="cimdUris"
         :allow-all-cimd-uris="allowAllCimdUris"
         class="mb-2"
-        @add-cimd-uri="addCimdUri"
-        @remove-cimd-uri="removeCimdUri"
-        @allow-all="changeAllowAllCimdUris" />
+        @cimd-uris-updated="handleCimdUrisUpdated" />
       <oauth-administration-cors-origins
         :origins="origins"
         :allow-all-origins="allowAllOrigins"
@@ -44,9 +42,7 @@
         :allow-all-cimd-uris="allowAllCimdUris"
         :clients="clients"
         class="mb-2"
-        @add-origin="addOrigin"
-        @remove-origin="removeOrigin"
-        @allow-all="changeAllowAllOrigins" />
+        @origins-updated="handleOriginsUpdated" />
       <div class="text-header my-4">
         {{ $t('oauth.administration.oAuthClients') }}
       </div>
@@ -138,37 +134,6 @@ export default {
         this.initialized = true;
       }
     },
-    async changeAllowAllRedirectUris(allowAll) {
-      this.loading = true;
-      try {
-        await this.$oAuthSettingService.setAllowAllRedirectUris(allowAll);
-        this.allowAllRedirectUris = await this.$oAuthSettingService.isAllowAllRedirectUris();
-        this.allowAllOrigins = await this.$oAuthSettingService.isAllowAllOrigins();
-        this.$root.$emit('alert-message', this.$t(`oauth.administration.clientsSelfRegistrationAllowedSelfRegistration.allowAny.${this.allowAllRedirectUris ? 'enabled' : 'disabled'}`), 'success');
-      } finally {
-        this.loading = false;
-      }
-    },
-    async changeAllowAllCimdUris(allowAll) {
-      this.loading = true;
-      try {
-        await this.$oAuthSettingService.setAllowAllCimdUris(allowAll);
-        this.allowAllCimdUris = await this.$oAuthSettingService.isAllowAllCimdUris();
-        this.$root.$emit('alert-message', this.$t(`oauth.administration.clientsSelfRegistrationCIMD.allowAny.${this.allowAllCimdUris ? 'enabled' : 'disabled'}`), 'success');
-      } finally {
-        this.loading = false;
-      }
-    },
-    async changeAllowAllOrigins(allowAll) {
-      this.loading = true;
-      try {
-        await this.$oAuthSettingService.setAllowAllOrigins(allowAll);
-        this.allowAllOrigins = await this.$oAuthSettingService.isAllowAllOrigins();
-        this.$root.$emit('alert-message', this.$t(`oauth.administration.clientsAllowedCorsOrigins.allowAny.${this.allowAllOrigins ? 'enabled' : 'disabled'}`), 'success');
-      } finally {
-        this.loading = false;
-      }
-    },
     async handleRedirectUrisUpdated() {
       this.loading = true;
       try {
@@ -179,52 +144,20 @@ export default {
         this.loading = false;
       }
     },
-    async addCimdUri(uri) {
+    async handleCimdUrisUpdated() {
       this.loading = true;
       try {
-        await this.$oAuthSettingService.addAllowedCimdUri(uri);
         this.cimdUris = await this.$oAuthSettingService.getAllowedCimdUris();
-        this.$root.$emit('alert-message', this.$t('oauth.administration.clientsSelfRegistrationCIMD.added'), 'success');
+        this.allowAllCimdUris = await this.$oAuthSettingService.isAllowAllCimdUris();
       } finally {
         this.loading = false;
       }
     },
-    async addOrigin(uri) {
+    async handleOriginsUpdated() {
       this.loading = true;
       try {
-        await this.$oAuthSettingService.addAllowedOrigin(uri);
         this.origins = await this.$oAuthSettingService.getAllowedOrigins();
-        this.$root.$emit('alert-message', this.$t('oauth.administration.clientsAllowedCorsOrigins.added'), 'success');
-      } finally {
-        this.loading = false;
-      }
-    },
-    async removeRedirectUri(uri) {
-      this.loading = true;
-      try {
-        await this.$oAuthSettingService.removeAllowedRedirectUri(uri);
-        this.redirectUris = await this.$oAuthSettingService.getAllowedRedirectUris();
-        this.$root.$emit('alert-message', this.$t('oauth.administration.clientsSelfRegistrationAllowedSelfRegistration.removed'), 'success');
-      } finally {
-        this.loading = false;
-      }
-    },
-    async removeCimdUri(uri) {
-      this.loading = true;
-      try {
-        await this.$oAuthSettingService.removeAllowedCimdUri(uri);
-        this.cimdUris = await this.$oAuthSettingService.getAllowedCimdUris();
-        this.$root.$emit('alert-message', this.$t('oauth.administration.clientsSelfRegistrationCIMD.removed'), 'success');
-      } finally {
-        this.loading = false;
-      }
-    },
-    async removeOrigin(uri) {
-      this.loading = true;
-      try {
-        await this.$oAuthSettingService.removeAllowedOrigin(uri);
-        this.origins = await this.$oAuthSettingService.getAllowedOrigins();
-        this.$root.$emit('alert-message', this.$t('oauth.administration.clientsAllowedCorsOrigins.removed'), 'success');
+        this.allowAllOrigins = await this.$oAuthSettingService.isAllowAllOrigins();
       } finally {
         this.loading = false;
       }
