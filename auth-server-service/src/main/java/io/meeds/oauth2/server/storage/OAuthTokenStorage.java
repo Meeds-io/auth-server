@@ -20,6 +20,7 @@ package io.meeds.oauth2.server.storage;
 
 import static io.meeds.oauth2.server.util.OAuthEventType.TOKEN_USED;
 
+import java.time.Instant;
 import java.util.List;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -32,6 +33,7 @@ import org.springframework.stereotype.Component;
 import org.exoplatform.services.listener.ListenerService;
 
 import io.meeds.oauth2.server.dao.OAuthTokenDao;
+import io.meeds.oauth2.server.entity.OAuthTokenEntity;
 import io.meeds.oauth2.server.model.OAuthAccessToken;
 import io.meeds.oauth2.server.util.EntityMapper;
 
@@ -131,6 +133,18 @@ public class OAuthTokenStorage implements OAuth2AuthorizationService {
          .stream()
          .map(EntityMapper::toObject)
          .forEach(this::remove);
+    } finally {
+      cachedStorage.evictCache();
+    }
+  }
+
+  public int cleanExpiredTokens() {
+    try {
+      List<OAuthTokenEntity> expiredTokens = dao.findExpiredTokens(Instant.now());
+      expiredTokens.stream()
+                   .map(EntityMapper::toObject)
+                   .forEach(this::remove);
+      return expiredTokens.size();
     } finally {
       cachedStorage.evictCache();
     }

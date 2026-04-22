@@ -87,4 +87,8 @@ public class OAuthTokenService {
     storage.remove(token);
   }
 
+  public int cleanExpiredTokens() {
+    return storage.cleanExpiredTokens();
+  }
+
 }
