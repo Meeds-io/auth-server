@@ -29,6 +29,7 @@ import org.springframework.boot.builder.SpringApplicationBuilder;
 import org.springframework.boot.web.servlet.support.SpringBootServletInitializer;
 import org.springframework.context.annotation.PropertySource;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
+import org.springframework.scheduling.annotation.EnableScheduling;
 
 import org.exoplatform.container.ExoContainer;
 
@@ -49,6 +50,7 @@ import jakarta.servlet.ServletException;
   OAuth2AuthorizationServerAutoConfiguration.class,
 })
 @EnableJpaRepositories(basePackages = OauthServerApplication.MODULE_NAME)
+@EnableScheduling
 @PropertySource({
   "classpath:application.properties",
   "classpath:application-common.properties",
