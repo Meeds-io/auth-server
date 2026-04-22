@@ -122,6 +122,7 @@ public class OAuthSettingService {
                               .map(Entry::getValue)
                               .map(Object::toString)
                               .flatMap(s -> Arrays.stream(s.split(",")))
+                              .filter(StringUtils::isNotBlank)
                               .map(String::trim)
                               .collect(Collectors.toCollection(LinkedHashSet::new));
       ((LinkedHashSet<String>) scopes).addFirst(OidcScopes.OPENID);
@@ -133,12 +134,16 @@ public class OAuthSettingService {
     SettingValue<?> settingValue = settingService.get(CONTEXT, SCOPE, ALLOWED_REDIRECT_URI_KEY);
     if (settingValue == null || settingValue.getValue() == null) {
       return StringUtils.isBlank(defaultSettings.getAllowedRedirectUriPrefixes()) ? Collections.emptyList() :
-                                                                                  Arrays.asList(defaultSettings.getAllowedRedirectUriPrefixes()
-                                                                                                               .split(","));
+                                                                                  Arrays.stream(defaultSettings.getAllowedRedirectUriPrefixes()
+                                                                                                               .split(","))
+                                                                                        .filter(StringUtils::isNotBlank)
+                                                                                        .toList();
     } else {
-      return Arrays.asList(settingValue.getValue()
+      return Arrays.stream(settingValue.getValue()
                                        .toString()
-                                       .split(","));
+                                       .split(","))
+                   .filter(StringUtils::isNotBlank)
+                   .toList();
     }
   }
 
@@ -146,12 +151,16 @@ public class OAuthSettingService {
     SettingValue<?> settingValue = settingService.get(CONTEXT, SCOPE, ALLOWED_CIMD_URI_KEY);
     if (settingValue == null || settingValue.getValue() == null) {
       return StringUtils.isBlank(defaultSettings.getAllowedCimdUriPrefixes()) ? Collections.emptyList() :
-                                                                              Arrays.asList(defaultSettings.getAllowedCimdUriPrefixes()
-                                                                                                           .split(","));
+                                                                              Arrays.stream(defaultSettings.getAllowedCimdUriPrefixes()
+                                                                                                           .split(","))
+                                                                                    .filter(StringUtils::isNotBlank)
+                                                                                    .toList();
     } else {
-      return Arrays.asList(settingValue.getValue()
+      return Arrays.stream(settingValue.getValue()
                                        .toString()
-                                       .split(","));
+                                       .split(","))
+                   .filter(StringUtils::isNotBlank)
+                   .toList();
     }
   }
 
@@ -159,12 +168,16 @@ public class OAuthSettingService {
     SettingValue<?> settingValue = settingService.get(CONTEXT, SCOPE, ALLOWED_ORIGINS_KEY);
     if (settingValue == null || settingValue.getValue() == null) {
       return StringUtils.isBlank(defaultSettings.getAllowedOrigins()) ? Collections.emptyList() :
-                                                                      Arrays.asList(defaultSettings.getAllowedOrigins()
-                                                                                                   .split(","));
+                                                                      Arrays.stream(defaultSettings.getAllowedOrigins()
+                                                                                                   .split(","))
+                                                                            .filter(StringUtils::isNotBlank)
+                                                                            .toList();
     } else {
-      return Arrays.asList(settingValue.getValue()
+      return Arrays.stream(settingValue.getValue()
                                        .toString()
-                                       .split(","));
+                                       .split(","))
+                   .filter(StringUtils::isNotBlank)
+                   .toList();
     }
   }
 

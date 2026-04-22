@@ -18,20 +18,18 @@
  */
 package io.meeds.oauth2.server.storage;
 
-import static io.meeds.oauth2.server.util.EntityMapper.toEntity;
+import static io.meeds.oauth2.server.util.OAuthEventType.TOKEN_USED;
 
 import java.util.List;
 
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.cache.annotation.CacheEvict;
-import org.springframework.cache.annotation.Cacheable;
-import org.springframework.security.oauth2.core.endpoint.OAuth2ParameterNames;
-import org.springframework.security.oauth2.core.oidc.endpoint.OidcParameterNames;
 import org.springframework.security.oauth2.server.authorization.OAuth2Authorization;
 import org.springframework.security.oauth2.server.authorization.OAuth2AuthorizationService;
 import org.springframework.security.oauth2.server.authorization.OAuth2TokenType;
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClient;
 import org.springframework.stereotype.Component;
+
+import org.exoplatform.services.listener.ListenerService;
 
 import io.meeds.oauth2.server.dao.OAuthTokenDao;
 import io.meeds.oauth2.server.model.OAuthAccessToken;
@@ -40,66 +38,44 @@ import io.meeds.oauth2.server.util.EntityMapper;
 @Component
 public class OAuthTokenStorage implements OAuth2AuthorizationService {
 
-  public static final String CACHE_NAME          = "oauth.tokens";
-
-  public static final String ACCESS_TOKEN_VALUE  = "access_token";
-
-  public static final String REFRESH_TOKEN_VALUE = "refresh_token";
+  @Autowired
+  private OAuthClientStorage      oAuthClientStorage;
 
   @Autowired
-  private OAuthClientStorage oAuthClientStorage;
+  private OAuthTokenCachedStorage cachedStorage;
 
   @Autowired
-  private OAuthTokenDao      dao;
+  private OAuthTokenDao           dao;
+
+  @Autowired
+  private ListenerService         listenerService;
 
   @Override
-  @CacheEvict(cacheNames = CACHE_NAME, allEntries = true)
   public void save(OAuth2Authorization authorization) {
-    dao.save(toEntity(authorization));
+    cachedStorage.save(authorization);
   }
 
   @Override
-  @CacheEvict(cacheNames = CACHE_NAME, allEntries = true)
   public void remove(OAuth2Authorization authorization) {
-    dao.deleteById(authorization.getId());
+    cachedStorage.remove(authorization);
   }
 
   @Override
-  @Cacheable(CACHE_NAME)
   public OAuth2Authorization findById(String id) {
-    return dao.findById(id)
-              .map(EntityMapper::toObject)
-              .orElse(null);
+    OAuth2Authorization oAuth2Authorization = cachedStorage.findById(id);
+    if (oAuth2Authorization != null) {
+      listenerService.broadcast(TOKEN_USED, oAuth2Authorization, null);
+    }
+    return oAuth2Authorization;
   }
 
   @Override
   public OAuth2Authorization findByToken(String token, OAuth2TokenType tokenType) {
-    if (token == null) {
-      return null;
+    OAuth2Authorization oAuth2Authorization = cachedStorage.findByToken(token, tokenType);
+    if (oAuth2Authorization != null) {
+      listenerService.broadcast(TOKEN_USED, oAuth2Authorization, null);
     }
-
-    if (tokenType == null) {
-      return dao.findByState(token)
-                .or(() -> dao.findByAuthorizationCodeValue(token))
-                .or(() -> dao.findByAccessTokenValue(token))
-                .or(() -> dao.findByRefreshTokenValue(token))
-                .or(() -> dao.findByOidcIdTokenValue(token))
-                .or(() -> dao.findByUserCodeValue(token))
-                .or(() -> dao.findByDeviceCodeValue(token))
-                .map(EntityMapper::toObject)
-                .orElse(null);
-    }
-
-    return switch (tokenType.getValue()) {
-    case OAuth2ParameterNames.CODE -> dao.findByAuthorizationCodeValue(token).map(EntityMapper::toObject).orElse(null);
-    case ACCESS_TOKEN_VALUE -> dao.findByAccessTokenValue(token).map(EntityMapper::toObject).orElse(null);
-    case REFRESH_TOKEN_VALUE -> dao.findByRefreshTokenValue(token).map(EntityMapper::toObject).orElse(null);
-    case OidcParameterNames.ID_TOKEN -> dao.findByOidcIdTokenValue(token).map(EntityMapper::toObject).orElse(null);
-    case OAuth2ParameterNames.STATE -> dao.findByState(token).map(EntityMapper::toObject).orElse(null);
-    case OAuth2ParameterNames.USER_CODE -> dao.findByUserCodeValue(token).map(EntityMapper::toObject).orElse(null);
-    case OAuth2ParameterNames.DEVICE_CODE -> dao.findByDeviceCodeValue(token).map(EntityMapper::toObject).orElse(null);
-    default -> null;
-    };
+    return oAuth2Authorization;
   }
 
   public List<OAuthAccessToken> findByUserAndClientId(String username, String clientId) {
@@ -125,21 +101,39 @@ public class OAuthTokenStorage implements OAuth2AuthorizationService {
               .toList();
   }
 
-  @CacheEvict(cacheNames = CACHE_NAME, allEntries = true)
   public void deleteByUserAndClientId(String username, String clientId) {
-    clientId = getClientId(clientId);
-    dao.deleteByPrincipalNameAndRegisteredClientId(username, clientId);
+    try {
+      clientId = getClientId(clientId);
+      dao.findByPrincipalNameAndRegisteredClientId(username, clientId)
+         .stream()
+         .map(EntityMapper::toObject)
+         .forEach(this::remove);
+    } finally {
+      cachedStorage.evictCache();
+    }
   }
 
-  @CacheEvict(cacheNames = CACHE_NAME, allEntries = true)
   public void deleteByClientId(String clientId) {
-    clientId = getClientId(clientId);
-    dao.deleteByRegisteredClientId(clientId);
+    try {
+      clientId = getClientId(clientId);
+      dao.findByRegisteredClientId(clientId)
+         .stream()
+         .map(EntityMapper::toObject)
+         .forEach(this::remove);
+    } finally {
+      cachedStorage.evictCache();
+    }
   }
 
-  @CacheEvict(cacheNames = CACHE_NAME, allEntries = true)
   public void deleteByUser(String username) {
-    dao.deleteByPrincipalName(username);
+    try {
+      dao.findByPrincipalName(username)
+         .stream()
+         .map(EntityMapper::toObject)
+         .forEach(this::remove);
+    } finally {
+      cachedStorage.evictCache();
+    }
   }
 
   private String getClientId(String clientId) {

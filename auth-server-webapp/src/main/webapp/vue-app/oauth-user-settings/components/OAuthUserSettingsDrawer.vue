@@ -33,25 +33,10 @@
     </template>
     <template v-if="drawer" #content>
       <div class="pa-5">
-        <v-expansion-panels
-          v-if="clients?.length"
-          v-model="panelIndex"
-          flat>
-          <oauth-user-settings-client
-            v-for="(client, i) in clients"
-            :key="client.uuid"
-            :client="client"
-            :scopes="scopes"
-            :tokens="tokensByClient[client.uuid]"
-            :consent="consentsByClient[client.uuid]"
-            :loading="loading"
-            :expanded="panelIndex === i"
-            :index="i"
-            :length="clients.length"
-            @delete-token="deleteTokenById"
-            @delete-tokens="deleteTokensByClient(client.id)"
-            @delete-consent="deleteConsentByClient(client.uuid)" />
-        </v-expansion-panels>
+        <oauth-user-settings-clients
+          :clients="clients"
+          :consents="consents"
+          @refresh="refresh" />
       </div>
     </template>
   </exo-drawer>
@@ -68,19 +53,8 @@ export default {
     drawer: false,
     expanded: false,
     loading: false,
-    tokens: null,
     consents: null,
-    scopes: null,
-    panelIndex: null,
   }),
-  computed: {
-    tokensByClient() {
-      return this.clients && this.tokens && Object.fromEntries(this.clients?.map?.(c => [c.uuid, this.tokens.filter(t => t.clientId === c.id)])) || {};
-    },
-    consentsByClient() {
-      return this.clients && this.consents && Object.fromEntries(this.clients?.map?.(c => [c.uuid, this.consents.find(co => co.clientId === c.id)])) || {};
-    },
-  },
   watch: {
     expanded() {
       if (!this.expanded) {
@@ -89,68 +63,20 @@ export default {
     },
   },
   methods: {
-    async open() {
+    open() {
       this.$refs.drawer.open();
-      this.loading = true;
-      try {
-        [
-          this.tokens,
-          this.consents,
-          this.scopes
-        ] = await Promise.all([
-          this.$oAuthTokenService.getTokens(),
-          this.$oAuthConsentService.getConsents(),
-          this.$oAuthSettingService.getScopes()
-        ]);
-        if (!this.expanded) {
-          this.$refs.drawer.toogleExpand();
-        }
-      } finally {
-        this.loading = false;
+      this.refresh();
+      if (!this.expanded) {
+        window.setTimeout(() => this.$refs.drawer.toogleExpand(), 50);
       }
     },
     close() {
       this.$refs.drawer.close();
     },
-    async deleteConsentByClient(clientId) {
+    async refresh() {
       this.loading = true;
       try {
-        await this.$oAuthConsentService.deleteConsentByUserAndClient(clientId);
-        [
-          this.tokens,
-          this.consents
-        ] = await Promise.all([
-          this.$oAuthTokenService.getTokens(),
-          this.$oAuthConsentService.getConsents()
-        ]);
-      } finally {
-        this.loading = false;
-      }
-    },
-    async deleteTokenById(tokenId) {
-      this.loading = true;
-      try {
-        await this.$oAuthTokenService.deleteTokenById(tokenId);
-        this.tokens = await this.$oAuthTokenService.getTokens();
-      } finally {
-        this.loading = false;
-      }
-    },
-    async deleteTokensByClient(clientId) {
-      this.loading = true;
-      try {
-        await Promise.all(this.tokens
-          .filter(t => t.clientId === clientId)
-          .map(t => this.$oAuthTokenService.deleteTokenById(t.id)));
-        this.tokens = await this.$oAuthTokenService.getTokens();
-      } finally {
-        this.loading = false;
-      }
-    },
-    async deleteAllTokens() {
-      this.loading = true;
-      try {
-        await Promise.all(this.tokens.map(t => this.$oAuthTokenService.deleteTokenById(t.id)));
+        this.consents = await this.$oAuthConsentService.getConsents();
       } finally {
         this.loading = false;
       }

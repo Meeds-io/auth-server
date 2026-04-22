@@ -25,8 +25,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 import io.meeds.oauth2.server.entity.OAuthTokenEntity;
 
-import jakarta.transaction.Transactional;
-
 public interface OAuthTokenDao extends JpaRepository<OAuthTokenEntity, String> {
 
   Optional<OAuthTokenEntity> findByState(String state);
@@ -45,17 +43,14 @@ public interface OAuthTokenDao extends JpaRepository<OAuthTokenEntity, String> {
 
   List<OAuthTokenEntity> findByAccessTokenValueNotNullAndPrincipalNameAndRegisteredClientId(String userName, String clientId);
 
+  List<OAuthTokenEntity> findByPrincipalNameAndRegisteredClientId(String userName, String clientId);
+
   List<OAuthTokenEntity> findByAccessTokenValueNotNullAndRegisteredClientId(String clientId);
+
+  List<OAuthTokenEntity> findByRegisteredClientId(String clientId);
 
   List<OAuthTokenEntity> findByAccessTokenValueNotNullAndPrincipalName(String username);
 
-  @Transactional
-  void deleteByPrincipalNameAndRegisteredClientId(String userName, String clientId);
-
-  @Transactional
-  void deleteByPrincipalName(String userName);
-
-  @Transactional
-  void deleteByRegisteredClientId(String clientId);
+  List<OAuthTokenEntity> findByPrincipalName(String username);
 
 }

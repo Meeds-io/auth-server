@@ -110,7 +110,7 @@ public class OAuthClientStorage implements RegisteredClientRepository {
   }
 
   public List<RegisteredClient> findAll() {
-    return dao.findAll()
+    return dao.findAllSortByClientNameAsc()
               .stream()
               .map(EntityMapper::toObject)
               .toList();

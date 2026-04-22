@@ -38,28 +38,38 @@ public class OAuthEventType {
 
   public static final String CLIENT_HIDDEN_EVENT                      = "oauth.clients.hidden";
 
-  public static final String CLIENT_AUTHORIZATION_CREATED             = "oauth.client.authorizations.created";
+  public static final String CONSENT_CREATED                          = "oauth.consents.created";
 
-  public static final String CLIENT_AUTHORIZATION_UPDATED             = "oauth.client.authorizations.updated";
+  public static final String CONSENT_UPDATED                          = "oauth.consents.updated";
 
-  public static final String CLIENT_AUTHORIZATION_DELETED             = "oauth.client.authorizations.deleted";
+  public static final String CONSENT_DELETED                          = "oauth.consents.deleted";
 
-  public static final String ALLOWED_REDIRECT_URIS_ALL_MODIFIED_EVENT = "meeds.oauth.redirect-uri.all.modified";
+  public static final String CONSENT_USED                             = "oauth.consents.used";
 
-  public static final String ALLOWED_REDIRECT_URI_ADDED_EVENT         = "meeds.oauth.redirect-uri.added";
+  public static final String TOKEN_CREATED                            = "oauth.tokens.created";
 
-  public static final String ALLOWED_REDIRECT_URI_REMOVED_EVENT       = "meeds.oauth.redirect-uri.removed";
+  public static final String TOKEN_UPDATED                            = "oauth.tokens.updated";
 
-  public static final String ALLOWED_CIMD_URIS_ALL_MODIFIED_EVENT     = "meeds.oauth.cimd-uri.all.modified";
+  public static final String TOKEN_DELETED                            = "oauth.tokens.deleted";
 
-  public static final String ALLOWED_CIMD_URI_ADDED_EVENT             = "meeds.oauth.cimd-uri.added";
+  public static final String TOKEN_USED                               = "oauth.tokens.used";
 
-  public static final String ALLOWED_CIMD_URI_REMOVED_EVENT           = "meeds.oauth.cimd-uri.removed";
+  public static final String ALLOWED_REDIRECT_URIS_ALL_MODIFIED_EVENT = "oauth.redirect-uri.all.modified";
 
-  public static final String ALLOWED_ORIGINS_ALL_MODIFIED_EVENT       = "meeds.oauth.origin.all.modified";
+  public static final String ALLOWED_REDIRECT_URI_ADDED_EVENT         = "oauth.redirect-uri.added";
 
-  public static final String ALLOWED_ORIGIN_ADDED_EVENT               = "meeds.oauth.origin.added";
+  public static final String ALLOWED_REDIRECT_URI_REMOVED_EVENT       = "oauth.redirect-uri.removed";
 
-  public static final String ALLOWED_ORIGIN_REMOVED_EVENT             = "meeds.oauth.origin.removed";
+  public static final String ALLOWED_CIMD_URIS_ALL_MODIFIED_EVENT     = "oauth.cimd-uri.all.modified";
+
+  public static final String ALLOWED_CIMD_URI_ADDED_EVENT             = "oauth.cimd-uri.added";
+
+  public static final String ALLOWED_CIMD_URI_REMOVED_EVENT           = "oauth.cimd-uri.removed";
+
+  public static final String ALLOWED_ORIGINS_ALL_MODIFIED_EVENT       = "oauth.origin.all.modified";
+
+  public static final String ALLOWED_ORIGIN_ADDED_EVENT               = "oauth.origin.added";
+
+  public static final String ALLOWED_ORIGIN_REMOVED_EVENT             = "oauth.origin.removed";
 
 }

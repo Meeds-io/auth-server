@@ -32,7 +32,7 @@ import jakarta.annotation.PostConstruct;
 @Component
 public class OAuthClientAttachmentPlugin extends AttachmentPlugin {
 
-  public static final String OBJECT_TYPE = "oauthClient";
+  public static final String OBJECT_TYPE = OAuthClientAclPlugin.OBJECT_TYPE;
 
   @Autowired
   private UserACL            userAcl;
@@ -52,12 +52,12 @@ public class OAuthClientAttachmentPlugin extends AttachmentPlugin {
 
   @Override
   public boolean hasAccessPermission(Identity userIdentity, String settingName) throws ObjectNotFoundException {
-    return true;
+    return userAcl.hasAccessPermission(OBJECT_TYPE, settingName, userIdentity.getUserId());
   }
 
   @Override
   public boolean hasEditPermission(Identity userIdentity, String settingName) throws ObjectNotFoundException {
-    return userAcl.isAdministrator(userIdentity);
+    return userAcl.hasEditPermission(OBJECT_TYPE, settingName, userIdentity.getUserId());
   }
 
   @Override

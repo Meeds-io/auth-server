@@ -18,14 +18,20 @@
  */
 package io.meeds.oauth2.server.security;
 
+import static io.meeds.oauth2.server.util.EntityMapper.CLIENT_CREATION_DATE;
+import static io.meeds.oauth2.server.util.EntityMapper.CLIENT_ENABLED_SETTING;
+import static io.meeds.oauth2.server.util.EntityMapper.CLIENT_IS_CIMD_SETTING;
 import static io.meeds.oauth2.server.util.EntityMapper.CLIENT_IS_DCR_SETTING;
+import static io.meeds.oauth2.server.util.EntityMapper.CLIENT_SERVICE_SETTING;
+import static io.meeds.oauth2.server.util.EntityMapper.CLIENT_SYSTEM_SETTING;
+import static io.meeds.oauth2.server.util.EntityMapper.CLIENT_UUID_SETTING;
 import static io.meeds.oauth2.server.util.EntityMapper.CUSTOM_CLIENT_METADATA;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import org.apache.commons.lang3.StringUtils;
-import org.springframework.core.convert.converter.Converter;
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
@@ -50,13 +56,21 @@ import lombok.SneakyThrows;
  */
 public class OAuthDcrAuthenticationProvider implements AuthenticationProvider {
 
-  private final OAuthClientService                                  oAuthClientService;
+  public static final List<String>                              NON_PUBLIC_CLIENT_METADATA = List.of(CLIENT_CREATION_DATE,
+                                                                                                     CLIENT_SYSTEM_SETTING,
+                                                                                                     CLIENT_ENABLED_SETTING,
+                                                                                                     CLIENT_SERVICE_SETTING,
+                                                                                                     CLIENT_UUID_SETTING,
+                                                                                                     CLIENT_IS_DCR_SETTING,
+                                                                                                     CLIENT_IS_CIMD_SETTING);
 
-  private final OAuthPasswordEncoder                                passwordEncoder;
+  private final OAuthClientService                              oAuthClientService;
 
-  private final Converter<OidcClientRegistration, RegisteredClient> registeredClientConverter;
+  private final OAuthPasswordEncoder                            passwordEncoder;
 
-  private final Converter<RegisteredClient, OidcClientRegistration> clientRegistrationConverter;
+  private final OidcClientRegistrationRegisteredClientConverter registeredClientConverter;
+
+  private final RegisteredClientOidcClientRegistrationConverter clientRegistrationConverter;
 
   public OAuthDcrAuthenticationProvider(OAuthClientService oAuthClientService, OAuthPasswordEncoder passwordEncoder) {
     this.oAuthClientService = oAuthClientService;
@@ -115,6 +129,7 @@ public class OAuthDcrAuthenticationProvider implements AuthenticationProvider {
     ClientSettings clientSettings = client.getClientSettings();
     OidcClientRegistration oidcClientRegistration = clientRegistrationConverter.convert(client);
     Map<String, Object> claims = new HashMap<>(oidcClientRegistration.getClaims()); // NOSONAR
+    NON_PUBLIC_CLIENT_METADATA.forEach(claims::remove);
     CUSTOM_CLIENT_METADATA.stream()
                           .filter(c -> clientSettings.getSetting(c) != null)
                           .forEach(c -> claims.put(c, clientSettings.getSetting(c)));

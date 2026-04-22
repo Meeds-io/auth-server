@@ -21,14 +21,16 @@ import OAuthUserSettings from './components/OAuthUserSettings.vue';
 
 import OAuthUserSettingsDrawer from './components/OAuthUserSettingsDrawer.vue';
 
-import OAuthUserSettingsClient from './components/OAuthUserSettingsClient.vue';
-import OAuthUserSettingsToken from './components/OAuthUserSettingsToken.vue';
+import OAuthUserSettingsClients from './components/clients/Clients.vue';
+import OAuthUserSettingsClient from './components/clients/Client.vue';
+import OAuthUserSettingsClientDrawer from './components/clients/drawer/ClientDrawer.vue';
 
 const components = {
   'oauth-user-settings': OAuthUserSettings,
   'oauth-user-settings-drawer': OAuthUserSettingsDrawer,
+  'oauth-user-settings-clients': OAuthUserSettingsClients,
   'oauth-user-settings-client': OAuthUserSettingsClient,
-  'oauth-user-settings-token': OAuthUserSettingsToken,
+  'oauth-user-settings-client-drawer': OAuthUserSettingsClientDrawer,
 };
 
 for (const key in components) {

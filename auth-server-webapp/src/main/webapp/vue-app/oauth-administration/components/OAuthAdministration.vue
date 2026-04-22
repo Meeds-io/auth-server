@@ -17,62 +17,36 @@
  Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 -->
 <template>
-  <v-app class="application-body px-5 border-box-sizing">
+  <v-app class="application-body pa-5 border-box-sizing">
     <main v-if="initialized">
-      <v-row class="ma-0">
-        <v-col
-          cols="12"
-          md="6"
-          lg="4"
-          class="ps-0 py-0 pe-4">
-          <oauth-administration-redirect-uris
-            :redirect-uris="redirectUris"
-            :allow-all-redirect-uris="allowAllRedirectUris"
-            class="me-2 mt-5"
-            @add-redirect-uri="addRedirectUri"
-            @remove-redirect-uri="removeRedirectUri"
-            @allow-all="changeAllowAllRedirectUris" />
-        </v-col>
-        <v-col
-          cols="12"
-          md="6"
-          lg="4"
-          class="ps-0 py-0 pe-4">
-          <oauth-administration-cimd-uris
-            :cimd-uris="cimdUris"
-            :allow-all-cimd-uris="allowAllCimdUris"
-            class="me-2 mt-5"
-            @add-cimd-uri="addCimdUri"
-            @remove-cimd-uri="removeCimdUri"
-            @allow-all="changeAllowAllCimdUris" />
-        </v-col>
-        <v-col
-          cols="12"
-          md="6"
-          lg="4"
-          class="pa-0">
-          <oauth-administration-cors-origins
-            :origins="origins"
-            :allow-all-origins="allowAllOrigins"
-            :cimd-uris="cimdUris"
-            :allow-all-cimd-uris="allowAllCimdUris"
-            :clients="clients"
-            class="mt-5"
-            @add-origin="addOrigin"
-            @remove-origin="removeOrigin"
-            @allow-all="changeAllowAllOrigins" />
-        </v-col>
-      </v-row>
+      <div class="text-title mb-4">
+        {{ $t('oauth.administration.title') }}
+      </div>
+      <div class="text-header mb-2">
+        {{ $t('oauth.administration.permissions') }}
+      </div>
+      <oauth-administration-dcr-redirect-uris
+        :redirect-uris="redirectUris"
+        :allow-all-redirect-uris="allowAllRedirectUris"
+        @redirect-uris-updated="handleRedirectUrisUpdated" />
+      <oauth-administration-cimd-uris
+        :cimd-uris="cimdUris"
+        :allow-all-cimd-uris="allowAllCimdUris"
+        @cimd-uris-updated="handleCimdUrisUpdated" />
+      <oauth-administration-cors-origins
+        :origins="origins"
+        :allow-all-origins="allowAllOrigins"
+        :redirect-uris="redirectUris"
+        :allow-all-redirect-uris="allowAllRedirectUris"
+        :clients="clients"
+        @origins-updated="handleOriginsUpdated" />
+      <div class="text-header mt-4">
+        {{ $t('oauth.administration.oAuthClients') }}
+      </div>
       <oauth-administration-clients
         :clients="clients"
         :scopes="orderedScopes"
-        @create-client="$refs.drawer.open()"
-        @refresh-client="refreshClient"
-        @refresh-clients="refreshClients" />
-      <oauth-administration-client-drawer
-        ref="drawer"
-        :scopes="orderedScopes"
-        @refresh-clients="refreshClients" />
+        @refresh="refreshClients" />
     </main>
   </v-app>
 </template>
@@ -151,93 +125,30 @@ export default {
         this.initialized = true;
       }
     },
-    async changeAllowAllRedirectUris(allowAll) {
+    async handleRedirectUrisUpdated() {
       this.loading = true;
       try {
-        await this.$oAuthSettingService.setAllowAllRedirectUris(allowAll);
+        this.redirectUris = await this.$oAuthSettingService.getAllowedRedirectUris();
+        this.allowAllOrigins = await this.$oAuthSettingService.isAllowAllOrigins();
         this.allowAllRedirectUris = await this.$oAuthSettingService.isAllowAllRedirectUris();
-        this.allowAllOrigins = await this.$oAuthSettingService.isAllowAllOrigins();
-        this.$root.$emit('alert-message', this.$t(`oauth.administration.clientsSelfRegistrationAllowedSelfRegistration.allowAny.${this.allowAllRedirectUris ? 'enabled' : 'disabled'}`), 'success');
       } finally {
         this.loading = false;
       }
     },
-    async changeAllowAllCimdUris(allowAll) {
+    async handleCimdUrisUpdated() {
       this.loading = true;
       try {
-        await this.$oAuthSettingService.setAllowAllCimdUris(allowAll);
+        this.cimdUris = await this.$oAuthSettingService.getAllowedCimdUris();
         this.allowAllCimdUris = await this.$oAuthSettingService.isAllowAllCimdUris();
-        this.$root.$emit('alert-message', this.$t(`oauth.administration.clientsSelfRegistrationCIMD.allowAny.${this.allowAllCimdUris ? 'enabled' : 'disabled'}`), 'success');
       } finally {
         this.loading = false;
       }
     },
-    async changeAllowAllOrigins(allowAll) {
+    async handleOriginsUpdated() {
       this.loading = true;
       try {
-        await this.$oAuthSettingService.setAllowAllOrigins(allowAll);
+        this.origins = await this.$oAuthSettingService.getAllowedOrigins();
         this.allowAllOrigins = await this.$oAuthSettingService.isAllowAllOrigins();
-        this.$root.$emit('alert-message', this.$t(`oauth.administration.clientsAllowedCorsOrigins.allowAny.${this.allowAllOrigins ? 'enabled' : 'disabled'}`), 'success');
-      } finally {
-        this.loading = false;
-      }
-    },
-    async addRedirectUri(uri) {
-      this.loading = true;
-      try {
-        await this.$oAuthSettingService.addAllowedRedirectUri(uri);
-        this.redirectUris = await this.$oAuthSettingService.getAllowedRedirectUris();
-        this.$root.$emit('alert-message', this.$t('oauth.administration.clientsSelfRegistrationAllowedSelfRegistration.added'), 'success');
-      } finally {
-        this.loading = false;
-      }
-    },
-    async addCimdUri(uri) {
-      this.loading = true;
-      try {
-        await this.$oAuthSettingService.addAllowedCimdUri(uri);
-        this.cimdUris = await this.$oAuthSettingService.getAllowedCimdUris();
-        this.$root.$emit('alert-message', this.$t('oauth.administration.clientsSelfRegistrationCIMD.added'), 'success');
-      } finally {
-        this.loading = false;
-      }
-    },
-    async addOrigin(uri) {
-      this.loading = true;
-      try {
-        await this.$oAuthSettingService.addAllowedOrigin(uri);
-        this.origins = await this.$oAuthSettingService.getAllowedOrigins();
-        this.$root.$emit('alert-message', this.$t('oauth.administration.clientsAllowedCorsOrigins.added'), 'success');
-      } finally {
-        this.loading = false;
-      }
-    },
-    async removeRedirectUri(uri) {
-      this.loading = true;
-      try {
-        await this.$oAuthSettingService.removeAllowedRedirectUri(uri);
-        this.redirectUris = await this.$oAuthSettingService.getAllowedRedirectUris();
-        this.$root.$emit('alert-message', this.$t('oauth.administration.clientsSelfRegistrationAllowedSelfRegistration.removed'), 'success');
-      } finally {
-        this.loading = false;
-      }
-    },
-    async removeCimdUri(uri) {
-      this.loading = true;
-      try {
-        await this.$oAuthSettingService.removeAllowedCimdUri(uri);
-        this.cimdUris = await this.$oAuthSettingService.getAllowedCimdUris();
-        this.$root.$emit('alert-message', this.$t('oauth.administration.clientsSelfRegistrationCIMD.removed'), 'success');
-      } finally {
-        this.loading = false;
-      }
-    },
-    async removeOrigin(uri) {
-      this.loading = true;
-      try {
-        await this.$oAuthSettingService.removeAllowedOrigin(uri);
-        this.origins = await this.$oAuthSettingService.getAllowedOrigins();
-        this.$root.$emit('alert-message', this.$t('oauth.administration.clientsAllowedCorsOrigins.removed'), 'success');
       } finally {
         this.loading = false;
       }
