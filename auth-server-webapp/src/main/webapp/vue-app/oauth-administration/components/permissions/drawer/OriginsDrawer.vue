@@ -50,7 +50,7 @@
               </v-icon>
             </div>
           </template>
-          <span>{{ $t('oauth.administration.clientsAllowedCorsOrigins.input.disabled') }}</span>
+          <span>{{ $t('oauth.administration.clientsAllowedCorsOrigins.disabled.tooltip') }}</span>
         </v-tooltip>
         <v-alert
           v-if="allowAll"
