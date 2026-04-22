@@ -22,7 +22,8 @@
       :items="clients"
       class="mb-4"
       hide-default-header
-      hide-default-footer>
+      hide-default-footer
+      disable-pagination>
       <template #default="props">
         <v-row>
           <v-col

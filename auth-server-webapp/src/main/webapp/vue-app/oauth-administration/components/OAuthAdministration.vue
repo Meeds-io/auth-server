@@ -40,7 +40,7 @@
         :allow-all-redirect-uris="allowAllRedirectUris"
         :clients="clients"
         @origins-updated="handleOriginsUpdated" />
-      <div class="text-header my-4">
+      <div class="text-header mt-4">
         {{ $t('oauth.administration.oAuthClients') }}
       </div>
       <oauth-administration-clients
