@@ -18,10 +18,13 @@
  */
 package io.meeds.oauth2.server.dao;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import io.meeds.oauth2.server.entity.OAuthTokenEntity;
 
@@ -52,5 +55,18 @@ public interface OAuthTokenDao extends JpaRepository<OAuthTokenEntity, String> {
   List<OAuthTokenEntity> findByAccessTokenValueNotNullAndPrincipalName(String username);
 
   List<OAuthTokenEntity> findByPrincipalName(String username);
+
+  @Query("""
+      SELECT t from OAuthToken t
+      WHERE (t.authorizationCodeExpiresAt IS NULL OR t.authorizationCodeExpiresAt < :dateNow)
+      AND (t.accessTokenExpiresAt IS NULL OR t.accessTokenExpiresAt < :dateNow)
+      AND (t.refreshTokenExpiresAt IS NULL OR t.refreshTokenExpiresAt < :dateNow)
+      AND (t.oidcIdTokenExpiresAt IS NULL OR t.oidcIdTokenExpiresAt < :dateNow)
+      AND (t.userCodeExpiresAt IS NULL OR t.userCodeExpiresAt < :dateNow)
+      AND (t.deviceCodeExpiresAt IS NULL OR t.deviceCodeExpiresAt < :dateNow)
+      """)
+  List<OAuthTokenEntity> findExpiredTokens(
+                                           @Param("dateNow")
+                                           Instant now);
 
 }
