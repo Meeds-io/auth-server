@@ -18,6 +18,7 @@
  */
 package io.meeds.oauth2.server.dao;
 
+import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -37,5 +38,7 @@ public interface OAuthClientAppDao extends JpaRepository<OAuthClientEntity, Long
   Optional<OAuthClientEntity> findByClientId(
                                              @Param("clientId")
                                              String clientId);
+
+  List<OAuthClientEntity> findSortByClientNameAsc();
 
 }
