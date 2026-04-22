@@ -84,11 +84,11 @@ public class OAuthConsentCachedStorage {
   public void remove(OAuth2AuthorizationConsent authorizationConsent) {
     String clientId = getClientId(authorizationConsent.getRegisteredClientId());
     String username = authorizationConsent.getPrincipalName();
-    OAuth2AuthorizationConsent existingClientAuthorization = dao.findByPrincipalNameAndRegisteredClientId(username, clientId)
-                                                                .map(EntityMapper::toObject)
-                                                                .orElse(null);
-    if (existingClientAuthorization != null) {
-      listenerService.broadcast(CONSENT_DELETED, existingClientAuthorization, authorizationConsent);
+    OAuthConsentEntity entity = dao.findByPrincipalNameAndRegisteredClientId(username, clientId)
+                                   .orElse(null);
+    if (entity != null) {
+      dao.delete(entity);
+      listenerService.broadcast(CONSENT_DELETED, EntityMapper.toObject(entity), authorizationConsent);
     }
   }
 

@@ -18,7 +18,10 @@
 -->
 <template>
   <v-hover v-slot="{ hover }">
-    <v-card :class="hover ? 'elevation-2' : 'elevation-0'" class="position-relative">
+    <v-card
+      :class="hover ? 'elevation-2' : 'elevation-0'"
+      class="position-relative"
+      @click="$emit('edit')">
       <div class="d-flex flex-nowrap align-center">
         <v-avatar
           class="me-4"
@@ -51,7 +54,7 @@
             class="ms-2"
             icon
             small
-            @click="openDeleteConfirm">
+            @click.stop.prevent="openDeleteConfirm">
             <v-icon size="16">fa-trash</v-icon>
           </v-btn>
           <v-btn
@@ -59,7 +62,7 @@
             class="ms-2"
             icon
             small
-            @click="$emit('edit')">
+            @click.stop.prevent="$emit('edit')">
             <v-icon size="16">fa-edit</v-icon>
           </v-btn>
         </div>

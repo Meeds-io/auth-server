@@ -104,7 +104,7 @@ public class OAuthTokenStorage implements OAuth2AuthorizationService {
   public void deleteByUserAndClientId(String username, String clientId) {
     try {
       clientId = getClientId(clientId);
-      dao.findByAccessTokenValueNotNullAndPrincipalNameAndRegisteredClientId(username, clientId)
+      dao.findByPrincipalNameAndRegisteredClientId(username, clientId)
          .stream()
          .map(EntityMapper::toObject)
          .forEach(this::remove);
@@ -116,7 +116,7 @@ public class OAuthTokenStorage implements OAuth2AuthorizationService {
   public void deleteByClientId(String clientId) {
     try {
       clientId = getClientId(clientId);
-      dao.findByAccessTokenValueNotNullAndRegisteredClientId(clientId)
+      dao.findByRegisteredClientId(clientId)
          .stream()
          .map(EntityMapper::toObject)
          .forEach(this::remove);
@@ -127,7 +127,7 @@ public class OAuthTokenStorage implements OAuth2AuthorizationService {
 
   public void deleteByUser(String username) {
     try {
-      dao.findByAccessTokenValueNotNullAndPrincipalName(username)
+      dao.findByPrincipalName(username)
          .stream()
          .map(EntityMapper::toObject)
          .forEach(this::remove);

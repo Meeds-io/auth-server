@@ -32,14 +32,96 @@
       {{ $t('UserSettings.oauth.client.drawerTitle') }}
     </template>
     <template v-if="drawer" #content>
-      <!-- TODO -->
+      <div class="pa-5">
+        <div class="d-flex flex-nowrap align-center mb-4">
+          <v-avatar
+            class="me-4"
+            size="40"
+            tile>
+            <v-img
+              v-if="client.logoUrl"
+              :src="client.logoUrl"
+              transition="none"
+              width="40"
+              max-height="40"
+              contain
+              eager />
+            <v-icon
+              v-else
+              size="40">
+              fa-key
+            </v-icon>
+          </v-avatar>
+          <v-card
+            class="d-flex flex-column justify-center text-start text-truncate flex-grow-1"
+            height="40"
+            flat>
+            {{ client.name }}
+          </v-card>
+        </div>
+        <div v-if="consent">
+          <div v-if="createdDate" class="d-flex align-center mb-2">
+            {{ $t('UserSettings.oauth.client.startedUsingAt') }}
+            <date-format
+              :value="createdDate"
+              :format="fullDateFormat"
+              class="text-body ms-2" />
+          </div>
+          <div v-if="lastUsageDate" class="d-flex align-center mb-2">
+            {{ $t('UserSettings.oauth.client.lastUsageSince') }}
+            <relative-date-format
+              :value="lastUsageDate"
+              class="text-body ms-2" />
+          </div>
+          <div class="text-header d-flex align-center my-4">
+            {{ $t('UserSettings.oauth.client.authorizedScopes') }}
+            <v-btn
+              :title="$t('UserSettings.oauth.client.delete')"
+              color="error"
+              class="ms-2"
+              icon
+              small
+              @click="$emit('delete', client)">
+              <v-icon size="16">fa-trash</v-icon>
+            </v-btn>
+          </div>
+          <div
+            v-for="scope in authorizedScopes"
+            :key="scope"
+            class="mb-2">
+            {{ $t(`oAuthConsent.scope.${scope}.name`) }}
+          </div>
+        </div>
+        <v-alert
+          v-else
+          type="info"
+          icon="fa-info-circle"
+          class="mt-8"
+          outlined>
+          {{ $t('UserSettings.oauth.client.notConnectedPlaceholder') }}
+          <a
+            v-if="client.url"
+            :href="client.url"
+            :aria-label="$t('UserSettings.oauth.visitWebsite')"
+            rel="nofollow noreferrer noopener"
+            target="_blank"
+            class="d-flex mt-4">
+            {{ $t('UserSettings.oauth.visitWebsite') }}
+            <v-icon size="12" class="text-link ms-1">fa-external-link-alt</v-icon>
+          </a>
+        </v-alert>
+      </div>
     </template>
   </exo-drawer>
 </template>
 <script>
 export default {
   props: {
-    scopes: {
+    clients: {
+      type: Array,
+      default: null,
+    },
+    consents: {
       type: Array,
       default: null,
     },
@@ -47,22 +129,50 @@ export default {
   data: () => ({
     drawer: false,
     client: null,
-    scopeSelection: {},
+    lastUsageDate: null,
+    fullDateFormat: {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    }
   }),
   computed: {
-    clientId() {
-      return this.client?.uuid;
+    consentsByClient() {
+      return this.clients && this.consents && Object.fromEntries(this.clients?.map?.(c => [c.uuid, this.consents?.find?.(co => co.clientId === c.id)])) || {};
     },
-    clientScopes() {
-      return this.client?.scopes;
+    consent() {
+      return this.consentsByClient?.[this.client?.uuid];
+    },
+    createdDate() {
+      return this.consent?.createdDate;
+    },
+    authorizedScopes() {
+      return this.consent?.scopes?.map?.(s => s.replace('SCOPE_', ''))?.sort?.((a, b) => {
+        if (a === 'openid') {
+          return -1;
+        } else if (b === 'openid') {
+          return 1;
+        } else if (a.includes('read') && !b.includes('read')) {
+          return -1;
+        } else if (b.includes('read') && !a.includes('read')) {
+          return 1;
+        } else {
+          return a.localeCompare(b);
+        }
+      });
     },
   },
   methods: {
-    open(client) {
+    async open(client) {
       this.client = client;
-      this.scopeSelection = {};
-      this.scopes.forEach(s => this.$set(this.scopeSelection, s, this.client.scopes?.includes?.(s)));
       this.$refs.drawer.open();
+      try {
+        this.lastUsageDate = await this.$oAuthClientService.getClientLastUsage(this.client.uuid, eXo.env.portal.userName);
+      } catch {
+        this.lastUsageDate = null;
+      }
     },
     close() {
       this.$refs.drawer.close();
