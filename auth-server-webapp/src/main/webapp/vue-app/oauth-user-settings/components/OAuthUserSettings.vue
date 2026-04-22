@@ -43,26 +43,21 @@
     </v-list-item-action>
     <oauth-user-settings-drawer
       ref="drawer"
-      :clients="displayedClients"
-      :tokens="tokens" />
+      :clients="displayedClients" />
   </v-list-item>
 </template>
 <script>
 export default {
   data: () => ({
     clients: null,
-    tokens: null,
-    scopes: null,
+    consents: null,
   }),
   computed: {
-    tokensByClient() {
-      return this.clients && this.tokens && Object.fromEntries(this.clients?.map?.(c => [c.uuid, this.tokens?.filter?.(t => t.clientId === c.id)])) || {};
-    },
     consentsByClient() {
       return this.clients && this.consents && Object.fromEntries(this.clients?.map?.(c => [c.uuid, this.consents?.find?.(co => co.clientId === c.id)])) || {};
     },
     displayedClients() {
-      return this.clients?.filter?.(c => c.displayed || this.tokensByClient[c.uuid]?.length || this.consentsByClient[c.uuid]);
+      return this.clients?.filter?.(c => c.displayed || this.consentsByClient[c.uuid]);
     },
   },
   async created() {
@@ -70,11 +65,9 @@ export default {
     [
       this.clients,
       this.consents,
-      this.tokens,
     ] = await Promise.all([
       this.$oAuthClientService.getClients(false),
       this.$oAuthConsentService.getConsents(),
-      this.$oAuthTokenService.getTokens(),
       exoi18n.loadLanguageAsync(lang, `/auth-server/i18n/locale.portlet.OAuthConsent?lang=${lang}`),
     ]);
   },

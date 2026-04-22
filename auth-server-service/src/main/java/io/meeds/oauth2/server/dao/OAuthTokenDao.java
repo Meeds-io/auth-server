@@ -43,8 +43,14 @@ public interface OAuthTokenDao extends JpaRepository<OAuthTokenEntity, String> {
 
   List<OAuthTokenEntity> findByAccessTokenValueNotNullAndPrincipalNameAndRegisteredClientId(String userName, String clientId);
 
+  List<OAuthTokenEntity> findByPrincipalNameAndRegisteredClientId(String userName, String clientId);
+
   List<OAuthTokenEntity> findByAccessTokenValueNotNullAndRegisteredClientId(String clientId);
 
+  List<OAuthTokenEntity> findByRegisteredClientId(String clientId);
+
   List<OAuthTokenEntity> findByAccessTokenValueNotNullAndPrincipalName(String username);
+
+  List<OAuthTokenEntity> findByPrincipalName(String username);
 
 }

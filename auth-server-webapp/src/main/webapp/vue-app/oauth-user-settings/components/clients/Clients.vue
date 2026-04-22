@@ -35,15 +35,16 @@
               :client="client"
               class="border-color border-radius pa-5"
               @edit="$refs.drawer.open(client)"
-              @deleted="$emit('refresh')" />
+              @deleted="deleteConsentByClient(client.uuid)" />
           </v-col>
         </v-row>
       </template>
     </v-data-iterator>
     <oauth-user-settings-client-drawer
       ref="drawer"
-      :scopes="scopes"
-      @saved="$emit('refresh')" />
+      :clients="clients"
+      :consents="consents"
+      @delete="deleteConsentByClient" />
   </div>
 </template>
 <script>
@@ -53,9 +54,25 @@ export default {
       type: Array,
       default: null,
     },
-    scopes: {
+    consents: {
       type: Array,
       default: null,
+    },
+  },
+  computed: {
+    consentsByClient() {
+      return this.clients && this.consents && Object.fromEntries(this.clients?.map?.(c => [c.uuid, this.consents?.find?.(co => co.clientId === c.id)])) || {};
+    },
+  },
+  methods: {
+    async deleteConsentByClient(clientId) {
+      this.loading = true;
+      try {
+        await this.$oAuthConsentService.deleteConsentByUserAndClient(clientId);
+        this.$emit('refresh');
+      } finally {
+        this.loading = false;
+      }
     },
   },
 };

@@ -18,31 +18,37 @@
 -->
 <template>
   <v-hover v-slot="{ hover }">
-    <v-card :class="hover ? 'elevation-2' : 'elevation-0'" class="position-relative">
+    <v-card
+      :class="hover ? 'elevation-2' : 'elevation-0'"
+      class="position-relative"
+      @click="$emit('edit')">
       <div class="d-flex flex-nowrap align-center">
         <v-avatar
           class="me-4"
-          size="36"
+          size="40"
           tile>
           <v-img
             v-if="client.logoUrl"
             :src="client.logoUrl"
             transition="none"
-            width="36"
-            max-height="36"
+            width="40"
+            max-height="40"
             contain
             eager />
           <v-icon
             v-else
-            size="36">
+            size="40">
             fa-key
           </v-icon>
         </v-avatar>
-        <div class="text-start text-truncate flex-grow-1">
-          <v-card-title class="text-title pt-0 ps-0">
+        <v-card
+          class="d-flex flex-column justify-space-between text-start text-truncate flex-grow-1"
+          height="40"
+          flat>
+          <v-card-title class="text-title pa-0 ma-0 line-height-normal">
             {{ client.name }}
           </v-card-title>
-          <v-card-subtitle v-if="client.url" class="ps-0 pb-0">
+          <v-card-subtitle v-if="client.url" class="pa-0 ma-0 line-height-normal width-min-content">
             <a
               :href="client.url"
               :aria-label="$t('UserSettings.oauth.visitWebsite')"
@@ -53,7 +59,7 @@
               <v-icon size="12" class="text-link ms-1">fa-external-link-alt</v-icon>
             </a>
           </v-card-subtitle>
-        </div>
+        </v-card>
         <div
           v-if="hover"
           class="d-flex flex-no-wrap me-n2 mb-auto">

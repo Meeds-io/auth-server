@@ -39,6 +39,7 @@ public interface OAuthClientAppDao extends JpaRepository<OAuthClientEntity, Long
                                              @Param("clientId")
                                              String clientId);
 
-  List<OAuthClientEntity> findSortByClientNameAsc();
+  @Query("SELECT c FROM OAuthClient c ORDER BY c.clientName ASC")
+  List<OAuthClientEntity> findAllSortByClientNameAsc();
 
 }
