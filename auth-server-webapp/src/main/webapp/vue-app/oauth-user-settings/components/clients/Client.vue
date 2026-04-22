@@ -38,29 +38,32 @@
             fa-key
           </v-icon>
         </v-avatar>
-        <div :title="client.name" class="text-title text-start text-truncate flex-grow-1">
-          {{ client.name }}
+        <div class="text-start text-truncate flex-grow-1">
+          <v-card-title class="text-title pt-0 ps-0">
+            {{ client.name }}
+          </v-card-title>
+          <v-card-subtitle v-if="client.url" class="ps-0 pb-0">
+            <a
+              :href="client.url"
+              :aria-label="$t('UserSettings.oauth.visitWebsite')"
+              rel="nofollow noreferrer noopener"
+              target="_blank"
+              class="d-flex">
+              {{ $t('UserSettings.oauth.visitWebsite') }}
+              <v-icon size="12" class="text-link ms-1">fa-external-link-alt</v-icon>
+            </a>
+          </v-card-subtitle>
         </div>
         <div
           v-if="hover"
-          class="d-flex flex-no-wrap me-n2 mt-n1">
+          class="d-flex flex-no-wrap me-n2 mb-auto">
           <v-btn
-            :title="$t('oauth.administration.client.delete')"
-            :disabled="client.system"
-            color="error"
-            class="ms-2"
-            icon
-            small
-            @click="openDeleteConfirm">
-            <v-icon size="16">fa-trash</v-icon>
-          </v-btn>
-          <v-btn
-            :title="$t('oauth.administration.client.edit')"
+            :title="$t('UserSettings.oauth.view')"
             class="ms-2"
             icon
             small
             @click="$emit('edit')">
-            <v-icon size="16">fa-edit</v-icon>
+            <v-icon size="16">fa-eye</v-icon>
           </v-btn>
         </div>
       </div>
@@ -73,26 +76,17 @@
           class="me-2">
           fa-bolt
         </v-icon>
-        {{ $t('oauth.administration.lastUse') }}
+        {{ $t('UserSettings.oauth.lastUse') }}
         <div class="ms-1">
           <relative-date-format
             v-if="lastUsedDate"
             :value="lastUsedDate"
             class="text-body" />
           <span v-else class="disabled--text">
-            {{ $t('oauth.administration.notUsedYet') }}
+            {{ $t('UserSettings.oauth.notUsedYet') }}
           </span>
         </div>
       </v-card>
-      <confirm-dialog
-        v-if="deleteConfirm"
-        ref="confirmDialog"
-        :title="$t('oauth.administration.deleteClient.confirmTitle')"
-        :message="$t('oauth.administration.deleteClient.confirmMessage', {0: `<strong>${client.name}</strong>`})"
-        :ok-label="$t('oauth.administration.ok')"
-        :cancel-label="$t('oauth.administration.cancel')"
-        @ok="deleteClient"
-        @dialog-closed="deleteConfirm = false" />
     </v-card>
   </v-hover>
 </template>
@@ -106,32 +100,14 @@ export default {
   },
   data: () => ({
     loading: false,
-    deleteConfirm: false,
     lastUsedDate: null,
   }),
   async created() {
     try {
-      this.lastUsedDate = await this.$oAuthClientService.getClientLastUsage(this.client.uuid);
+      this.lastUsedDate = await this.$oAuthClientService.getClientLastUsage(this.client.uuid, eXo.env.portal.userName);
     } catch {
       this.lastUsedDate = null;
     }
-  },
-  methods: {
-    async openDeleteConfirm() {
-      this.deleteConfirm = true;
-      await this.$nextTick();
-      this.$refs.confirmDialog.open();
-    },
-    async deleteClient() {
-      this.loading = true;
-      try {
-        await this.$oAuthClientService.deleteClient(this.client?.uuid);
-        this.$emit('deleted');
-        this.$root.$emit('alert-message', this.$t('oauth.administration.client.deleteSuccess'), 'success');
-      } finally {
-        this.loading = false;
-      }
-    },
   },
 };
 </script>

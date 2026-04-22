@@ -33,25 +33,9 @@
     </template>
     <template v-if="drawer" #content>
       <div class="pa-5">
-        <v-expansion-panels
-          v-if="clients?.length"
-          v-model="panelIndex"
-          flat>
-          <oauth-user-settings-client
-            v-for="(client, i) in clients"
-            :key="client.uuid"
-            :client="client"
-            :scopes="scopes"
-            :tokens="tokensByClient[client.uuid]"
-            :consent="consentsByClient[client.uuid]"
-            :loading="loading"
-            :expanded="panelIndex === i"
-            :index="i"
-            :length="clients.length"
-            @delete-token="deleteTokenById"
-            @delete-tokens="deleteTokensByClient(client.id)"
-            @delete-consent="deleteConsentByClient(client.uuid)" />
-        </v-expansion-panels>
+        <oauth-user-settings-clients
+          :clients="clients"
+          :scopes="scopes" />
       </div>
     </template>
   </exo-drawer>
