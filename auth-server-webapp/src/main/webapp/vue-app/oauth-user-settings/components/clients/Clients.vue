@@ -18,31 +18,8 @@
 -->
 <template>
   <div>
-    <div class="mx-n4">
-      <application-toolbar
-        :right-text-filter="{
-          minCharacters: 1,
-          placeholder: $t('oauth.administration.client.filterByNameOrUrl'),
-          tooltip: $t('oauth.administration.client.filterByNameOrUrl'),
-        }"
-        class="border-box-sizing"
-        @filter-text-input="keyword = $event">
-        <template #left>
-          <v-btn
-            id="applicationToolbarLeftButton"
-            :aria-label="$t('oauth.administration.client.add')"
-            class="btn btn-primary text-truncate"
-            @click="$refs.drawer.open()">
-            <v-icon size="18">fa-plus</v-icon>
-            <span class="text-truncate text-none ms-2">
-              {{ $t('oauth.administration.client.add') }}
-            </span>
-          </v-btn>
-        </template>
-      </application-toolbar>
-    </div>
     <v-data-iterator
-      :items="filteredClients"
+      :items="clients"
       class="mb-4"
       hide-default-header
       hide-default-footer>
@@ -54,7 +31,7 @@
             cols="12"
             sm="2"
             md="4">
-            <oauth-administration-client
+            <oauth-user-settings-client
               :client="client"
               class="border-color border-radius pa-5"
               @edit="$refs.drawer.open(client)"
@@ -63,7 +40,7 @@
         </v-row>
       </template>
     </v-data-iterator>
-    <oauth-administration-client-drawer
+    <oauth-user-settings-client-drawer
       ref="drawer"
       :scopes="scopes"
       @saved="$emit('refresh')" />
@@ -79,18 +56,6 @@ export default {
     scopes: {
       type: Array,
       default: null,
-    },
-  },
-  data: () => ({
-    keyword: null,
-  }),
-  computed: {
-    filteredClients() {
-      if (this.keyword?.length) {
-        return this.clients.filter(c => c.name?.toLowerCase?.()?.includes?.(this.keyword.toLowerCase()) || c.url?.includes?.(this.keyword.toLowerCase()));
-      } else {
-        return this.clients;
-      }
     },
   },
 };
