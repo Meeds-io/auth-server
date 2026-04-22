@@ -77,7 +77,7 @@
         class="d-flex align-center mt-8 full-width"
         flat>
         <v-icon
-          color="primary"
+          color="tertiary"
           size="20"
           class="me-2">
           fa-bolt
