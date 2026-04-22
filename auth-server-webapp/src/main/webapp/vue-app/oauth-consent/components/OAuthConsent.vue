@@ -19,7 +19,12 @@
 <template>
   <v-app>
     <main class="application-body position-static">
-      <div v-if="!loading && client" class="application-layout-style pa-5">
+      <v-card
+        v-if="!loading && client"
+        class="application-layout-style border-box-sizing pa-5 mx-auto"
+        width="600px !important"
+        max-width="100% !important"
+        flat>
         <div class="d-flex flex-nowrap align-center">
           <v-avatar
             class="pa-0"
@@ -43,94 +48,48 @@
             </v-card-subtitle>
           </div>
         </div>
-        <div class="text-title mb-5">
+        <div class="text-header mb-4 mt-2">
           {{ $t('oAuthConsent.authorize') }}
         </div>
         <div class="mb-5">
           <span v-sanitized-html="label"></span>
         </div>
-        <v-card class="border-color border-radius pa-5" flat>
-          <div class="d-flex flex-nowrap">
-            <v-avatar
-              v-if="client.logoUrl"
-              class="py-0 ps-0 pe-4"
-              size="75"
-              tile>
-              <v-img :src="client.logoUrl" contain />
-            </v-avatar>
-            <div>
-              <v-card-title class="text-header pt-0 ps-0">
-                {{ client.name }}
-              </v-card-title>
-              <v-card-subtitle v-if="client.url" class="ps-0 pb-0">
-                <a
-                  :href="client.url"
-                  :aria-label="$t('oAuthConsent.visitWebsite')"
-                  rel="nofollow noreferrer noopener"
-                  target="_blank"
-                  class="d-flex">
-                  {{ $t('oAuthConsent.visitWebsite') }}
-                  <v-icon size="12" class="text-link ms-1">fa-external-link-alt</v-icon>
-                </a>
-              </v-card-subtitle>
+        <v-form
+          method="post"
+          action="/auth-server/oauth2/authorize">
+          <div class="d-flex flex-column">
+            <div class="font-weight-bold mb-2">
+              {{ $t('oAuthConsent.scope.allowList') }}
             </div>
+            <oauth-consent-scope
+              v-model="scopeSelection[scope]"
+              v-for="scope in scopes"
+              :key="scope"
+              :scope="scope"
+              :consented-scopes="consentedScopes" />
           </div>
-          <v-form
-            method="post"
-            action="/auth-server/oauth2/authorize">
-            <div class="d-flex flex-column">
-              <v-card-title class="text-header ps-0 pb-0 pt-3 mb-n2">
-                {{ $t('oAuthConsent.scope.allowList') }}
-              </v-card-title>
-              <oauth-consent-scope
-                v-model="scopeSelection[scope]"
-                v-for="scope in scopes"
-                :key="scope"
-                :scope="scope"
-                :consented-scopes="consentedScopes" />
-            </div>
-            <v-card-actions class="pa-0 mt-4">
-              <input
-                :value="$root.clientId"
-                type="hidden"
-                name="client_id">
-              <input
-                :value="$root.state"
-                type="hidden"
-                name="state">
-              <v-btn
-                color="success"
-                type="submit"
-                outlined
-                rounded
-                small>
-                <v-icon
-                  color="success"
-                  size="24"
-                  class="me-2 ms-n1">
-                  fa-check-circle
-                </v-icon>
-                {{ $t('oAuthConsent.approve') }}
-              </v-btn>
-              <v-btn
-                class="ms-2"
-                color="error"
-                outlined
-                rounded
-                small
-                @click="cancel">
-                <v-icon
-                  color="error"
-                  size="24"
-                  class="me-2 ms-n1">
-                  fa-times-circle
-                </v-icon>
-                {{ $t('oAuthConsent.deny') }}
-              </v-btn>
-            </v-card-actions>
-          </v-form>
-        </v-card>
-      </div>
+          <v-card-actions class="d-flex justify-center pa-0 mt-4">
+            <input
+              :value="$root.clientId"
+              type="hidden"
+              name="client_id">
+            <input
+              :value="$root.state"
+              type="hidden"
+              name="state">
+            <v-btn
+              class="btn-primary btn"
+              type="submit">
+              {{ $t('oAuthConsent.confirm') }}
+            </v-btn>
+            <v-btn
+              class="btn ms-4"
+              @click="cancel">
+              {{ $t('oAuthConsent.cancel') }}
+            </v-btn>
+          </v-card-actions>
+        </v-form>
+      </v-card>
     </main>
   </v-app>
 </template>
@@ -172,7 +131,7 @@ export default {
     label() {
       return this.$t('oAuthConsent.doYouAuthorizeApp', {
         0: `<strong>${this.client?.name}</strong>`,
-        1: `<strong>${this.companyName}</strong>`
+        1: this.companyName
       });
     },
   },
