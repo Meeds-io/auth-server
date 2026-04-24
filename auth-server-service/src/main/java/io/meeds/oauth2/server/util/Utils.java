@@ -25,6 +25,8 @@ import java.net.UnknownHostException;
 
 public class Utils {
 
+  public static final String OFFLINE_ACCESS_SCOPE = "offline_access";
+
   private Utils() {
     // Utils Class
   }
