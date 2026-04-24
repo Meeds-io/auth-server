@@ -18,7 +18,7 @@
  */
 package io.meeds.oauth2.server.service;
 
-import static io.meeds.oauth2.server.util.EntityMapper.CLIENT_ENABLED_SETTING;
+import static io.meeds.oauth2.server.util.EntityMapper.*;
 import static io.meeds.oauth2.server.util.EntityMapper.CLIENT_LOGO_URI_SETTING;
 import static io.meeds.oauth2.server.util.EntityMapper.CLIENT_SYSTEM_SETTING;
 import static io.meeds.oauth2.server.util.EntityMapper.CLIENT_URI_SETTING;
@@ -31,6 +31,7 @@ import java.nio.file.Path;
 import java.time.Instant;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 
@@ -39,6 +40,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatusCode;
+import org.springframework.security.oauth2.core.AuthorizationGrantType;
 import org.springframework.security.oauth2.core.oidc.OidcScopes;
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClient;
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClient.Builder;
@@ -161,6 +163,7 @@ public class OAuthClientService {
     return getClient(clientId, false);
   }
 
+  @SuppressWarnings("removal")
   @SneakyThrows
   public RegisteredClient register(RegisteredClient publicClient) {
     String clientId = computePublicClientId(publicClient);
@@ -197,7 +200,15 @@ public class OAuthClientService {
                                          s));
     }
     RegisteredClient client = getClient(clientId, false);
-    if (client == null) {
+    if (client == null
+        || !client.getAuthorizationGrantTypes().contains(AuthorizationGrantType.AUTHORIZATION_CODE)
+        || client.getAuthorizationGrantTypes().contains(AuthorizationGrantType.PASSWORD)
+        || client.getAuthorizationGrantTypes().contains(AuthorizationGrantType.JWT_BEARER)
+        || (client.getAuthorizationGrantTypes().contains(AuthorizationGrantType.CLIENT_CREDENTIALS)
+            && !Objects.equals(client.getClientSettings().getSetting(CLIENT_IS_CIMD_SETTING), true)
+            && !Objects.equals(client.getClientSettings().getSetting(CLIENT_IS_DCR_SETTING), true))
+        || !client.getClientSettings().isRequireAuthorizationConsent()
+        || !client.getClientSettings().isRequireProofKey()) {
       throw new IllegalStateException("[DCR / CIMD] Self Registered Client not enabled");
     }
     return client;
