@@ -61,14 +61,32 @@
             <div class="font-weight-bold mb-2">
               {{ $t('oAuthConsent.scope.allowList') }}
             </div>
-            <oauth-consent-scope
-              v-model="scopeSelection[scope]"
-              v-for="scope in scopes"
-              :key="scope"
-              :scope="scope"
-              :consented-scopes="consentedScopes" />
+            <template v-for="scope in scopes">
+              <oauth-consent-scope
+                v-if="scope !== 'offline_access'"
+                v-model="scopeSelection[scope]"
+                :key="scope"
+                :scope="scope"
+                :consented-scopes="consentedScopes" />
+            </template>
+            <div class="font-weight-bold mb-2 mt-4">
+              {{ $t('oAuthConsent.scope.sessionLivetime') }}
+            </div>
+            <v-checkbox
+              v-if="hasOfflineAccessScope"
+              v-model="scopeSelection['offline_access']"
+              :aria-label="$t('oAuthConsent.scope.sessionLivetime.label')"
+              :label="$t('oAuthConsent.scope.sessionLivetime.label')"
+              name="scope"
+              value="offline_access"
+              class="ms-n1 mt-2"
+              on-icon="fa-check-square fa-lg"
+              off-icon="far fa-square fa-lg" />
+            <div class="text-subtitle mb-2 mt-n2 ms-7">
+              {{ $t('oAuthConsent.scope.sessionLivetime.description') }}
+            </div>
           </div>
-          <v-card-actions class="d-flex justify-center pa-0 mt-4">
+          <v-card-actions class="d-flex justify-center pa-0 mt-6">
             <input
               :value="$root.clientId"
               type="hidden"
@@ -101,23 +119,31 @@ export default {
     companyLogo: eXo.env.portal.companyLogo,
     scopeSelection: {},
     consents: null,
+    requestScopes: null,
     loading: false,
   }),
   computed: {
     scopes() {
-      return this.client?.scopes?.slice?.()?.sort?.((a, b) => {
-        if (a === 'openid') {
-          return -1;
-        } else if (b === 'openid') {
-          return 1;
-        } else if (a.includes('read') && !b.includes('read')) {
-          return -1;
-        } else if (b.includes('read') && !a.includes('read')) {
-          return 1;
-        } else {
-          return a.localeCompare(b);
-        }
-      });
+      return this.client
+        ?.scopes
+        ?.slice?.()
+        ?.filter?.(s => !this.requestScopes?.length || this.requestScopes.includes(s))
+        ?.sort?.((a, b) => {
+          if (a === 'openid') {
+            return -1;
+          } else if (b === 'openid') {
+            return 1;
+          } else if (a.includes('read') && !b.includes('read')) {
+            return -1;
+          } else if (b.includes('read') && !a.includes('read')) {
+            return 1;
+          } else {
+            return a.localeCompare(b);
+          }
+        });
+    },
+    hasOfflineAccessScope() {
+      return this.scopes.includes('offline_access');
     },
     clientUuid() {
       return this.client?.uuid;
@@ -144,6 +170,8 @@ export default {
     },
   },
   async created() {
+    this.requestScopes = this.$utils?.getQueryParam?.('scope')?.split?.(' ');
+
     await this.init();
     this.$root.$applicationLoaded();
   },

@@ -354,6 +354,7 @@ public class OAuthClientService {
                                                       .scopes(r -> {
                                                         r.clear();
                                                         r.add(OidcScopes.OPENID);
+                                                        r.add(Utils.OFFLINE_ACCESS_SCOPE);
                                                         r.addAll(scopes);
                                                       })
                                                       .build();
@@ -443,6 +444,7 @@ public class OAuthClientService {
                                           scopes.addAll(oAuthSettingService.getScopes());
                                         } else {
                                           scopes.add(OidcScopes.OPENID);
+                                          scopes.add(Utils.OFFLINE_ACCESS_SCOPE);
                                           scopes.retainAll(oAuthSettingService.getScopes());
                                         }
                                       });
@@ -462,7 +464,8 @@ public class OAuthClientService {
     ClientSettings publicClientSettings = getPublicClientSettings(client, existingClient);
     clientBuilder.clientSettings(publicClientSettings)
                  .tokenSettings(publicClientTokenSettings)
-                 .scope(OidcScopes.OPENID);
+                 .scope(OidcScopes.OPENID)
+                 .scope(Utils.OFFLINE_ACCESS_SCOPE);
   }
 
   private ClientSettings getPublicClientSettings(RegisteredClient client, RegisteredClient existingClient) {
