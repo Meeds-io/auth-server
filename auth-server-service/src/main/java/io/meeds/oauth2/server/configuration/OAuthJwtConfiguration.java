@@ -24,15 +24,27 @@ import java.security.NoSuchAlgorithmException;
 import java.security.interfaces.RSAPrivateKey;
 import java.security.interfaces.RSAPublicKey;
 import java.text.ParseException;
+import java.time.Instant;
 import java.util.UUID;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.security.oauth2.core.AuthorizationGrantType;
+import org.springframework.security.oauth2.core.OAuth2RefreshToken;
+import org.springframework.security.oauth2.core.OAuth2Token;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.security.oauth2.jwt.JwtEncoder;
+import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
+import org.springframework.security.oauth2.server.authorization.OAuth2TokenType;
 import org.springframework.security.oauth2.server.authorization.config.annotation.web.configuration.OAuth2AuthorizationServerConfiguration;
+import org.springframework.security.oauth2.server.authorization.token.DelegatingOAuth2TokenGenerator;
 import org.springframework.security.oauth2.server.authorization.token.JwtEncodingContext;
+import org.springframework.security.oauth2.server.authorization.token.JwtGenerator;
+import org.springframework.security.oauth2.server.authorization.token.OAuth2AccessTokenGenerator;
+import org.springframework.security.oauth2.server.authorization.token.OAuth2TokenContext;
 import org.springframework.security.oauth2.server.authorization.token.OAuth2TokenCustomizer;
+import org.springframework.security.oauth2.server.authorization.token.OAuth2TokenGenerator;
 
 import com.nimbusds.jose.jwk.JWKSet;
 import com.nimbusds.jose.jwk.KeyUse;
@@ -49,6 +61,7 @@ import org.exoplatform.web.security.codec.CodecInitializer;
 import org.exoplatform.web.security.security.TokenServiceInitializationException;
 
 import io.meeds.oauth2.server.service.OAuthJwtCustomizerService;
+import io.meeds.oauth2.server.util.Utils;
 
 @Configuration
 public class OAuthJwtConfiguration {
@@ -62,6 +75,11 @@ public class OAuthJwtConfiguration {
   @Bean
   JwtDecoder jwtDecoder(JWKSource<SecurityContext> jwkSource) {
     return OAuth2AuthorizationServerConfiguration.jwtDecoder(jwkSource);
+  }
+
+  @Bean
+  JwtEncoder jwtEncoder(JWKSource<SecurityContext> jwkSource) {
+    return new NimbusJwtEncoder(jwkSource);
   }
 
   @Bean
@@ -93,6 +111,14 @@ public class OAuthJwtConfiguration {
     return oAuthJwtCustomizerService::customizeAccessTokenClaims;
   }
 
+  @Bean
+  OAuth2TokenGenerator<? extends OAuth2Token> tokenGenerator(JwtEncoder jwtEncoder) { // NOSONAR
+    JwtGenerator jwtGenerator = new JwtGenerator(jwtEncoder);
+    return new DelegatingOAuth2TokenGenerator(jwtGenerator,
+                                              new OAuth2AccessTokenGenerator(),
+                                              this::generateRefreshToken);
+  }
+
   private JWKSet generate(int keysize) throws NoSuchAlgorithmException {
     KeyPairGenerator generator = KeyPairGenerator.getInstance("RSA");
     generator.initialize(keysize);
@@ -104,6 +130,24 @@ public class OAuthJwtConfiguration {
                                  .keyID("sig-" + UUID.randomUUID())
                                  .build();
     return new JWKSet(rsaKey);
+  }
+
+  private OAuth2RefreshToken generateRefreshToken(OAuth2TokenContext context) {
+    if (OAuth2TokenType.REFRESH_TOKEN.equals(context.getTokenType())
+        && context.getAuthorizedScopes().contains(Utils.OFFLINE_ACCESS_SCOPE)
+        && context.getRegisteredClient()
+                  .getAuthorizationGrantTypes()
+                  .contains(AuthorizationGrantType.REFRESH_TOKEN)) {
+      Instant issuedAt = Instant.now();
+      Instant expiresAt = issuedAt.plus(context.getRegisteredClient()
+                                               .getTokenSettings()
+                                               .getRefreshTokenTimeToLive());
+
+      String value = UUID.randomUUID() + "-" + UUID.randomUUID();
+      return new OAuth2RefreshToken(value, issuedAt, expiresAt);
+    } else {
+      return null;
+    }
   }
 
 }

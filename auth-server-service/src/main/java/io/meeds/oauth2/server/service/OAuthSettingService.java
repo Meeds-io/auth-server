@@ -62,6 +62,7 @@ import org.exoplatform.commons.utils.PropertyManager;
 import org.exoplatform.services.listener.ListenerService;
 
 import io.meeds.oauth2.server.configuration.model.OAuthDefaultSettings;
+import io.meeds.oauth2.server.util.Utils;
 
 @Service
 public class OAuthSettingService {
@@ -126,6 +127,7 @@ public class OAuthSettingService {
                               .map(String::trim)
                               .collect(Collectors.toCollection(LinkedHashSet::new));
       ((LinkedHashSet<String>) scopes).addFirst(OidcScopes.OPENID);
+      ((LinkedHashSet<String>) scopes).add(Utils.OFFLINE_ACCESS_SCOPE);
     }
     return scopes;
   }
