@@ -18,29 +18,16 @@
  */
 package io.meeds.oauth2.server.model;
 
-import java.time.Instant;
-import java.util.List;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import org.junit.jupiter.api.Test;
 
-@Data
-@NoArgsConstructor
-@AllArgsConstructor
-public class OAuthJwkSet {
+class OauthClientTypeTest {
 
-  private List<OAuthJwkEntry> entries;
-
-  @Data
-  @NoArgsConstructor
-  @AllArgsConstructor
-  public static class OAuthJwkEntry {
-
-    private String  keyPairJson;
-
-    private Instant activatedAt;
-
+  @Test
+  void enumShouldExposeExpectedValues() {
+    assertEquals(OauthClientType.PUBLIC, OauthClientType.valueOf("PUBLIC"));
+    assertEquals(OauthClientType.CONFIDENTIAL, OauthClientType.valueOf("CONFIDENTIAL"));
+    assertEquals(2, OauthClientType.values().length);
   }
-
 }

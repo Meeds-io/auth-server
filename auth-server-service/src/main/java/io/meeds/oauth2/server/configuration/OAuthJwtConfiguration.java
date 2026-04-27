@@ -56,7 +56,11 @@ public class OAuthJwtConfiguration {
 
   @Bean
   JwtEncoder jwtEncoder(JWKSource<SecurityContext> jwkSource) {
-    return new NimbusJwtEncoder(jwkSource);
+    NimbusJwtEncoder encoder = new NimbusJwtEncoder(jwkSource);
+    encoder.setJwkSelector(jwks -> jwks.stream()
+                                       .findFirst()
+                                       .orElseThrow(() -> new IllegalStateException("No JWK available for JWT signing")));
+    return encoder;
   }
 
   @Bean
