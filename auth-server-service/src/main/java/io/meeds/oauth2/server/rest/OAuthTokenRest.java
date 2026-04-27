@@ -18,6 +18,8 @@
  */
 package io.meeds.oauth2.server.rest;
 
+import static io.meeds.oauth2.server.rest.util.EntityBuilder.decodeBase64;
+
 import java.security.Principal;
 import java.util.List;
 
@@ -85,7 +87,7 @@ public class OAuthTokenRest {
   public void deleteTokensByClient(
                                    @PathVariable("clientId")
                                    String clientId) {
-    oAuthTokenService.deleteTokensByClient(clientId);
+    oAuthTokenService.deleteTokensByClient(decodeBase64(clientId));
   }
 
   @DeleteMapping("/byClient/{clientId}/{username}")
@@ -95,12 +97,12 @@ public class OAuthTokenRest {
   @ApiResponses(value = {
     @ApiResponse(responseCode = "200", description = "Request fulfilled"),
   })
-  public void deleteTokensByClient(
-                                   @PathVariable("username")
-                                   String username,
-                                   @PathVariable("clientId")
-                                   String clientId) {
-    oAuthTokenService.deleteTokensByUserAndClient(username, clientId);
+  public void deleteTokensByUserAndClient(
+                                          @PathVariable("username")
+                                          String username,
+                                          @PathVariable("clientId")
+                                          String clientId) {
+    oAuthTokenService.deleteTokensByUserAndClient(username, decodeBase64(clientId));
   }
 
 }

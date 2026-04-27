@@ -26,15 +26,20 @@ import static io.meeds.oauth2.server.util.EntityMapper.CLIENT_SERVICE_SETTING;
 import static io.meeds.oauth2.server.util.EntityMapper.CLIENT_SYSTEM_SETTING;
 import static io.meeds.oauth2.server.util.EntityMapper.CLIENT_UUID_SETTING;
 import static io.meeds.oauth2.server.util.EntityMapper.CUSTOM_CLIENT_METADATA;
+import static io.meeds.oauth2.server.util.OAuthEventType.CLIENT_REGISTER_REJECT_EVENT;
 
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.apache.commons.codec.digest.HmacAlgorithms;
+import org.apache.commons.codec.digest.HmacUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.security.authentication.AuthenticationProvider;
+import org.springframework.security.authentication.AuthenticationServiceException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.core.ClientAuthenticationMethod;
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClient;
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClient.Builder;
@@ -44,9 +49,11 @@ import org.springframework.security.oauth2.server.authorization.oidc.converter.O
 import org.springframework.security.oauth2.server.authorization.oidc.converter.RegisteredClientOidcClientRegistrationConverter;
 import org.springframework.security.oauth2.server.authorization.settings.ClientSettings;
 
+import org.exoplatform.services.listener.ListenerService;
+import org.exoplatform.web.security.codec.CodecInitializer;
+
 import io.meeds.common.ContainerTransactional;
 import io.meeds.oauth2.server.service.OAuthClientService;
-import io.meeds.oauth2.server.service.OAuthPasswordEncoder;
 
 import lombok.SneakyThrows;
 
@@ -66,15 +73,26 @@ public class OAuthDcrAuthenticationProvider implements AuthenticationProvider {
 
   private final OAuthClientService                              oAuthClientService;
 
-  private final OAuthPasswordEncoder                            passwordEncoder;
+  private final CodecInitializer                                codecInitializer;
+
+  private final PasswordEncoder                                 passwordEncoder;
+
+  private final ListenerService                                 listenerService;
 
   private final OidcClientRegistrationRegisteredClientConverter registeredClientConverter;
 
   private final RegisteredClientOidcClientRegistrationConverter clientRegistrationConverter;
 
-  public OAuthDcrAuthenticationProvider(OAuthClientService oAuthClientService, OAuthPasswordEncoder passwordEncoder) {
+  private String                                                platformSecret;
+
+  public OAuthDcrAuthenticationProvider(OAuthClientService oAuthClientService,
+                                        CodecInitializer codecInitializer,
+                                        PasswordEncoder passwordEncoder,
+                                        ListenerService listenerService) {
     this.oAuthClientService = oAuthClientService;
+    this.codecInitializer = codecInitializer;
     this.passwordEncoder = passwordEncoder;
+    this.listenerService = listenerService;
     this.registeredClientConverter = new OidcClientRegistrationRegisteredClientConverter();
     this.clientRegistrationConverter = new RegisteredClientOidcClientRegistrationConverter();
   }
@@ -85,20 +103,24 @@ public class OAuthDcrAuthenticationProvider implements AuthenticationProvider {
   }
 
   @Override
-  @SneakyThrows
   public Authentication authenticate(Authentication authentication) throws AuthenticationException {
     OidcClientRegistrationAuthenticationToken authenticationToken = (OidcClientRegistrationAuthenticationToken) authentication;
     return authenticate(authenticationToken);
   }
 
   @ContainerTransactional
-  private Authentication authenticate(OidcClientRegistrationAuthenticationToken authenticationToken) {
-    OidcClientRegistration oidcClientRegistration = authenticationToken.getClientRegistration();
-    RegisteredClient client = convert(oidcClientRegistration);
-
-    RegisteredClient registeredClient = oAuthClientService.register(client);
-    return new OidcClientRegistrationAuthenticationToken(authenticationToken,
-                                                         convert(registeredClient));
+  private Authentication authenticate(OidcClientRegistrationAuthenticationToken authenticationToken) { // NOSONAR
+    OidcClientRegistration oidcClientRegistration = null;
+    try {
+      oidcClientRegistration = authenticationToken.getClientRegistration();
+      RegisteredClient client = convert(oidcClientRegistration);
+      RegisteredClient registeredClient = oAuthClientService.register(client);
+      return new OidcClientRegistrationAuthenticationToken(authenticationToken,
+                                                           convert(registeredClient));
+    } catch (Exception e) {
+      listenerService.broadcast(CLIENT_REGISTER_REJECT_EVENT, oidcClientRegistration, e);
+      throw new AuthenticationServiceException(e.getMessage(), e);
+    }
   }
 
   private RegisteredClient convert(OidcClientRegistration oidcClientRegistration) {
@@ -112,7 +134,7 @@ public class OAuthDcrAuthenticationProvider implements AuthenticationProvider {
       clientBuilder.clientSecret(null);
       clientBuilder.clientAuthenticationMethod(ClientAuthenticationMethod.NONE);
     } else if (StringUtils.isNotBlank(client.getClientSecret())) {
-      clientBuilder.clientSecret(passwordEncoder.encode(client.getClientSecret()));
+      clientBuilder.clientSecret(passwordEncoder.encode(generateSimulatedClientSecretForPublicClient(client)));
     }
     ClientSettings.Builder clientSettingsBuilder = ClientSettings.withSettings(client.getClientSettings().getSettings());
     oidcClientRegistration.getClaims()
@@ -135,9 +157,30 @@ public class OAuthDcrAuthenticationProvider implements AuthenticationProvider {
                           .forEach(c -> claims.put(c, clientSettings.getSetting(c)));
     OidcClientRegistration.Builder oidcClientRegistrationBuilder = OidcClientRegistration.withClaims(claims);
     if (StringUtils.isNotBlank(oidcClientRegistration.getClientSecret())) {
-      oidcClientRegistrationBuilder.clientSecret(passwordEncoder.decode(client.getClientSecret()));
+      oidcClientRegistrationBuilder.clientSecret(generateSimulatedClientSecretForPublicClient(client));
     }
     return oidcClientRegistrationBuilder.build();
+  }
+
+  /**
+   * Used only for OAuth clients which doesn't support Public Clients This will
+   * force a non support of Public clients to be supported By adding a fake
+   * password which is deterinistic and will return the same each time the DCR
+   * is invoked
+   * 
+   * @param client {@link RegisteredClient}
+   * @return deterinistic password content from Registered Client
+   */
+  private String generateSimulatedClientSecretForPublicClient(RegisteredClient client) {
+    return new HmacUtils(HmacAlgorithms.HMAC_SHA_256, getPlatformSecret()).hmacHex(client.getClientId());
+  }
+
+  @SneakyThrows
+  public String getPlatformSecret() {
+    if (platformSecret == null) {
+      platformSecret = codecInitializer.getCodec().encode("oauth-public-client-platform-secret");
+    }
+    return platformSecret;
   }
 
 }

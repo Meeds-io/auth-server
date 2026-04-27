@@ -18,11 +18,14 @@
  */
 package io.meeds.oauth2.server.security;
 
+import static io.meeds.oauth2.server.util.OAuthEventType.CLIENT_REGISTER_REJECT_EVENT;
+
 import java.util.Set;
 
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.AuthenticationProvider;
+import org.springframework.security.authentication.AuthenticationServiceException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.core.AuthorizationGrantType;
 import org.springframework.security.oauth2.core.ClientAuthenticationMethod;
@@ -33,7 +36,11 @@ import org.springframework.security.oauth2.server.authorization.authentication.O
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClient;
 import org.springframework.stereotype.Component;
 
+import org.exoplatform.commons.exception.ObjectNotFoundException;
+import org.exoplatform.services.listener.ListenerService;
+
 import io.meeds.common.ContainerTransactional;
+import io.meeds.oauth2.server.model.ClientRegistrationRateLimitException;
 import io.meeds.oauth2.server.model.OAuthCimdClientMetadata;
 import io.meeds.oauth2.server.plugin.OAuthCimdClientConverter;
 import io.meeds.oauth2.server.plugin.OAuthCimdClientResolver;
@@ -62,6 +69,9 @@ public class OAuthCimdAuthenticationProvider implements AuthenticationProvider {
   @Autowired
   private OAuthCimdClientConverter converter;
 
+  @Autowired
+  private ListenerService          listenerService;
+
   @Override
   public boolean supports(Class<?> authentication) {
     return OAuth2AuthorizationCodeRequestAuthenticationToken.class.isAssignableFrom(authentication);
@@ -82,21 +92,27 @@ public class OAuthCimdAuthenticationProvider implements AuthenticationProvider {
   private void createClientUsingCimd(OAuth2AuthorizationCodeRequestAuthenticationToken authenticationToken) {
     String clientId = authenticationToken.getClientId();
     String redirectUri = authenticationToken.getRedirectUri();
-    OAuthCimdClientMetadata clientMetadata = resolver.resolve(clientId);
-    if (redirectUri == null
-        || !clientMetadata.redirectUris().contains(redirectUri)) {
-      throwError(OAuth2ErrorCodes.INVALID_REQUEST,
-                 "Invalid redirect_uri '%s' for CIMD. Allowed Client Redirect Uris: %s".formatted(redirectUri,
-                                                                                                  StringUtils.join(clientMetadata.redirectUris(),
-                                                                                                                   ", ")));
-    } else if (!clientMetadata.grantTypes().contains(AuthorizationGrantType.AUTHORIZATION_CODE.getValue())) {
-      throwError(OAuth2ErrorCodes.UNAUTHORIZED_CLIENT,
-                 "Client is missing 'authorization_code' Grant Type");
-    } else if (!ALLOWED_AUTH_METHODS.contains(clientMetadata.tokenEndpointAuthMethod())) {
-      throwError(OAuth2ErrorCodes.INVALID_CLIENT,
-                 "Unsupported 'token_endpoint_auth_method': %s".formatted(clientMetadata.tokenEndpointAuthMethod()));
-    } else {
-      registerClient(clientMetadata, authenticationToken.getScopes());
+    OAuthCimdClientMetadata clientMetadata = null;
+    try {
+      clientMetadata = resolver.resolve(clientId);
+      if (redirectUri == null
+          || !clientMetadata.redirectUris().contains(redirectUri)) {
+        throwError(OAuth2ErrorCodes.INVALID_REQUEST,
+                   "Invalid redirect_uri '%s' for CIMD. Allowed Client Redirect Uris: %s".formatted(redirectUri,
+                                                                                                    StringUtils.join(clientMetadata.redirectUris(),
+                                                                                                                     ", ")));
+      } else if (!clientMetadata.grantTypes().contains(AuthorizationGrantType.AUTHORIZATION_CODE.getValue())) {
+        throwError(OAuth2ErrorCodes.UNAUTHORIZED_CLIENT,
+                   "Client is missing 'authorization_code' Grant Type");
+      } else if (!ALLOWED_AUTH_METHODS.contains(clientMetadata.tokenEndpointAuthMethod())) {
+        throwError(OAuth2ErrorCodes.INVALID_CLIENT,
+                   "Unsupported 'token_endpoint_auth_method': %s".formatted(clientMetadata.tokenEndpointAuthMethod()));
+      } else {
+        registerClient(clientMetadata, authenticationToken.getScopes());
+      }
+    } catch (Exception e) {
+      listenerService.broadcast(CLIENT_REGISTER_REJECT_EVENT, clientMetadata, e);
+      throw new AuthenticationServiceException(e.getMessage(), e);
     }
   }
 
@@ -111,7 +127,9 @@ public class OAuthCimdAuthenticationProvider implements AuthenticationProvider {
            && oAuthClientService.getClient(clientId, true) == null;
   }
 
-  private void registerClient(OAuthCimdClientMetadata clientMetadata, Set<String> scopes) {
+  private void registerClient(OAuthCimdClientMetadata clientMetadata, Set<String> scopes) throws IllegalAccessException,
+                                                                                          ClientRegistrationRateLimitException,
+                                                                                          ObjectNotFoundException {
     RegisteredClient registeredClient = converter.convert(clientMetadata, scopes);
     oAuthClientService.register(registeredClient);
   }

@@ -28,6 +28,7 @@ import static io.meeds.oauth2.server.util.OAuthEventType.ALLOWED_REDIRECT_URIS_A
 import static io.meeds.oauth2.server.util.OAuthEventType.ALLOWED_REDIRECT_URI_ADDED_EVENT;
 import static io.meeds.oauth2.server.util.OAuthEventType.ALLOWED_REDIRECT_URI_REMOVED_EVENT;
 
+import java.net.IDN;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -64,7 +65,10 @@ import org.exoplatform.services.listener.ListenerService;
 import io.meeds.oauth2.server.configuration.model.OAuthDefaultSettings;
 import io.meeds.oauth2.server.util.Utils;
 
+import lombok.extern.slf4j.Slf4j;
+
 @Service
+@Slf4j
 public class OAuthSettingService {
 
   private static final Context CONTEXT                    = Context.GLOBAL.id("meeds.oauth");
@@ -96,6 +100,8 @@ public class OAuthSettingService {
 
   private Set<String>          scopes;
 
+  private Set<String>          allowedAudiences;
+
   @Value("${meeds.oauth.allow-all-redirect-uris:false}")
   private boolean              defaultAllowAllRedirectUris;
 
@@ -104,6 +110,9 @@ public class OAuthSettingService {
 
   @Value("${meeds.oauth.allow-all-origins:false}")
   private boolean              defaultAllowAllOrigins;
+
+  @Value("#{'${meeds.oauth.development-insecure-hosts:localhost,127.0.0.1}'.split(',')}")
+  private List<String>         developmentAllowedInsecureHosts;
 
   public String getIssuerUrl() {
     if (issuerUrl == null) {
@@ -130,6 +139,22 @@ public class OAuthSettingService {
       ((LinkedHashSet<String>) scopes).add(Utils.OFFLINE_ACCESS_SCOPE);
     }
     return scopes;
+  }
+
+  public Set<String> getAllowedAudiences() {
+    if (allowedAudiences == null) {
+      allowedAudiences = PropertyManager.getProperties()
+                                        .entrySet()
+                                        .stream()
+                                        .filter(e -> e.getKey().toString().startsWith("meeds.oauth.app.audiences"))
+                                        .map(Entry::getValue)
+                                        .map(Object::toString)
+                                        .flatMap(s -> Arrays.stream(s.split(",")))
+                                        .filter(StringUtils::isNotBlank)
+                                        .map(String::trim)
+                                        .collect(Collectors.toCollection(LinkedHashSet::new));
+    }
+    return allowedAudiences;
   }
 
   public List<String> getAllowedRedirectUris() {
@@ -229,29 +254,35 @@ public class OAuthSettingService {
     listenerService.broadcast(ALLOWED_ORIGINS_ALL_MODIFIED_EVENT, allowAll, allowAll);
   }
 
-  public void addAllowedRedirectUri(String redirectUri) {
-    URI.create(redirectUri); // URI Format Validation
-    List<String> allowedRedirectUris = new ArrayList<>(getAllowedRedirectUris());
-    if (!allowedRedirectUris.contains(redirectUri.trim())) {
-      allowedRedirectUris.add(redirectUri.trim());
-      settingService.set(CONTEXT,
-                         SCOPE,
-                         ALLOWED_REDIRECT_URI_KEY,
-                         SettingValue.create(StringUtils.join(allowedRedirectUris, ',')));
-      listenerService.broadcast(ALLOWED_REDIRECT_URI_ADDED_EVENT, redirectUri, allowedRedirectUris);
+  public void addAllowedRedirectUri(String redirectUriPrefix) {
+    if (isUriStructureValid(redirectUriPrefix)) {
+      List<String> allowedRedirectUris = new ArrayList<>(getAllowedRedirectUris());
+      if (!allowedRedirectUris.contains(redirectUriPrefix.trim())) {
+        allowedRedirectUris.add(redirectUriPrefix.trim());
+        settingService.set(CONTEXT,
+                           SCOPE,
+                           ALLOWED_REDIRECT_URI_KEY,
+                           SettingValue.create(StringUtils.join(allowedRedirectUris, ',')));
+        listenerService.broadcast(ALLOWED_REDIRECT_URI_ADDED_EVENT, redirectUriPrefix, allowedRedirectUris);
+      }
+    } else {
+      throw new IllegalArgumentException("Invalid URL Prefix Format. Must be https and must not have fragment nor userInfo.");
     }
   }
 
-  public void addAllowedCimdUri(String cimdUri) {
-    URI.create(cimdUri); // URI Format Validation
-    List<String> allowedCimdUris = new ArrayList<>(getAllowedCimdUris());
-    if (!allowedCimdUris.contains(cimdUri.trim())) {
-      allowedCimdUris.add(cimdUri.trim());
-      settingService.set(CONTEXT,
-                         SCOPE,
-                         ALLOWED_CIMD_URI_KEY,
-                         SettingValue.create(StringUtils.join(allowedCimdUris, ',')));
-      listenerService.broadcast(ALLOWED_CIMD_URI_ADDED_EVENT, cimdUri, allowedCimdUris);
+  public void addAllowedCimdUri(String cimdUriPrefix) {
+    if (isUriStructureValid(cimdUriPrefix)) {
+      List<String> allowedCimdUris = new ArrayList<>(getAllowedCimdUris());
+      if (!allowedCimdUris.contains(cimdUriPrefix.trim())) {
+        allowedCimdUris.add(cimdUriPrefix.trim());
+        settingService.set(CONTEXT,
+                           SCOPE,
+                           ALLOWED_CIMD_URI_KEY,
+                           SettingValue.create(StringUtils.join(allowedCimdUris, ',')));
+        listenerService.broadcast(ALLOWED_CIMD_URI_ADDED_EVENT, cimdUriPrefix, allowedCimdUris);
+      }
+    } else {
+      throw new IllegalArgumentException("Invalid URL Prefix Format. Must be https and must not have fragment nor userInfo.");
     }
   }
 
@@ -304,18 +335,6 @@ public class OAuthSettingService {
     }
   }
 
-  public boolean isAllowedRedicrectUri(String uri) {
-    return isAllowAllRedirectUris()
-           || getAllowedRedirectUris().stream()
-                                      .anyMatch(uri::startsWith);
-  }
-
-  public boolean isAllowedCimdUrl(String uri) {
-    return isAllowAllCimdUris()
-           || getAllowedCimdUris().stream()
-                                  .anyMatch(uri::startsWith);
-  }
-
   public ClientSettings getPublicClientSettings() {
     Client client = defaultSettings.getPublicClient();
     ClientSettings.Builder builder = ClientSettings.builder();
@@ -358,6 +377,96 @@ public class OAuthSettingService {
       jwsAlgorithm = MacAlgorithm.from(name);
     }
     return jwsAlgorithm;
+  }
+
+  public boolean isAllowedRedirectUri(String uri) {
+    try {
+      return isUriStructureValid(uri)
+             && (isAllowAllRedirectUris()
+                 || getAllowedRedirectUris().stream()
+                                            .anyMatch(u -> isAllowedUriPrefix(u, uri)));
+    } catch (Exception e) {
+      log.warn("Error while validating Redirect URL: {}", uri, e);
+      return false;
+    }
+  }
+
+  public boolean isAllowedCimdUrl(String uri) {
+    try {
+      return isUriStructureValid(uri)
+             && (isAllowAllCimdUris()
+                 || getAllowedCimdUris().stream()
+                                        .anyMatch(u -> isAllowedUriPrefix(u, uri)));
+    } catch (Exception e) {
+      log.warn("Error while validating CIMD URL: {}", uri, e);
+      return false;
+    }
+  }
+
+  private boolean isUriStructureValid(String uriPrefix) {
+    URI uri = URI.create(uriPrefix).normalize();
+    if (StringUtils.isBlank(uri.getScheme()) || StringUtils.isBlank(uri.getHost())) {
+      return false;
+    } else if (uri.getUserInfo() != null || uri.getFragment() != null) {
+      return false;
+    } else if ("https".equalsIgnoreCase(uri.getScheme().toLowerCase(Locale.ROOT))) {
+      return true;
+    } else {
+      return PropertyManager.isDevelopping()
+             && "http".equalsIgnoreCase(uri.getScheme())
+             && developmentAllowedInsecureHosts.stream()
+                                               .anyMatch(h -> h.equalsIgnoreCase(uri.getHost()));
+    }
+  }
+
+  private boolean isAllowedUriPrefix(String allowedPrefix, String candidateUri) {
+    URI allowed = URI.create(allowedPrefix).normalize();
+    URI candidate = URI.create(candidateUri).normalize();
+    if (!StringUtils.equalsIgnoreCase(allowed.getScheme(), candidate.getScheme())) {
+      return false;
+    } else if (!StringUtils.equals(normalizeHost(allowed.getHost()), normalizeHost(candidate.getHost()))) {
+      return false;
+    } else if (allowed.getUserInfo() != null || candidate.getUserInfo() != null) {
+      return false;
+    } else if (candidate.getFragment() != null) {
+      return false;
+    } else if (normalizePort(allowed) != normalizePort(candidate)) {
+      return false;
+    } else {
+      String allowedPath = normalizePathPrefix(allowed.getPath());
+      String candidatePath = normalizePathPrefix(candidate.getPath());
+      // Avoid human intervention while allowing only approved redirect domains
+      // Thus, the Path can be a non-empty prefix and not only exact match
+      // like /path/to/callback/ is valid for
+      // /path/to/callback/ANY_SUFFIX_OR_USER_DASHBOARD_ID
+      return candidatePath.equals(allowedPath)
+             || candidatePath.startsWith(allowedPath);
+    }
+  }
+
+  private int normalizePort(URI uri) {
+    if (uri.getPort() != -1) {
+      return uri.getPort();
+    }
+    if ("https".equalsIgnoreCase(uri.getScheme())) {
+      return 443;
+    }
+    if ("http".equalsIgnoreCase(uri.getScheme())) {
+      return 80;
+    }
+    return -1;
+  }
+
+  private String normalizeHost(String host) {
+    return host == null ? null : IDN.toASCII(host, IDN.ALLOW_UNASSIGNED).toLowerCase(Locale.ROOT);
+  }
+
+  private String normalizePathPrefix(String path) {
+    if (StringUtils.isBlank(path)) {
+      return "/";
+    }
+    String normalized = URI.create(path).normalize().getPath();
+    return normalized.endsWith("/") ? normalized : normalized + "/";
   }
 
 }

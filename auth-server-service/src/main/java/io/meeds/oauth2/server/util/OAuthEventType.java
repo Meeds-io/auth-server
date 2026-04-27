@@ -38,6 +38,8 @@ public class OAuthEventType {
 
   public static final String CLIENT_HIDDEN_EVENT                      = "oauth.clients.hidden";
 
+  public static final String CLIENT_REGISTER_REJECT_EVENT             = "oauth.clients.registrationRejected";
+
   public static final String CONSENT_CREATED                          = "oauth.consents.created";
 
   public static final String CONSENT_UPDATED                          = "oauth.consents.updated";

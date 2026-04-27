@@ -27,6 +27,9 @@ import java.util.Set;
 
 import org.apache.commons.collections4.CollectionUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
+import org.springframework.security.oauth2.core.OAuth2Error;
+import org.springframework.security.oauth2.core.OAuth2ErrorCodes;
 import org.springframework.security.oauth2.jwt.JwtClaimsSet;
 import org.springframework.security.oauth2.server.authorization.OAuth2TokenType;
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClient;
@@ -80,6 +83,7 @@ public class OAuthJwtCustomizerService {
 
     JwtClaimsSet.Builder claims = context.getClaims();
     claims.claim("client_id", client.getClientId());
+    claims.claim("azp", client.getClientId());
     claims.claim("grant_type", context.getAuthorizationGrantType().getValue());
     claims.claim("scope", context.getAuthorizedScopes());
     claims.claim("token_kind", serviceToken ? "service" : "user");
@@ -101,7 +105,9 @@ public class OAuthJwtCustomizerService {
                             .map(p -> p.provideAudiences(context))
                             .filter(CollectionUtils::isNotEmpty)
                             .findFirst()
-                            .orElse(null);
+                            .orElseThrow(() -> new OAuth2AuthenticationException(new OAuth2Error(OAuth2ErrorCodes.INVALID_REQUEST,
+                                                                                                 "No valid audience provided",
+                                                                                                 null)));
   }
 
   private Set<String> computeJwtAuthorities(JwtEncodingContext context) {

@@ -18,7 +18,8 @@
  */
 package io.meeds.oauth2.server.plugin;
 
-import static io.meeds.oauth2.server.util.EntityMapper.*;
+import static io.meeds.oauth2.server.util.EntityMapper.CLIENT_IS_CIMD_SETTING;
+import static io.meeds.oauth2.server.util.EntityMapper.CLIENT_IS_DCR_SETTING;
 
 import java.net.URI;
 import java.util.List;
@@ -49,10 +50,10 @@ public class OAuthDcrRedirectUriValidator implements OAuthDcrValidator {
     } else if (isDcrClient(client)
                && !client.getRedirectUris()
                          .stream()
-                         .allMatch(oAuthSettingService::isAllowedRedicrectUri)) {
+                         .allMatch(oAuthSettingService::isAllowedRedirectUri)) {
       List<String> notAllowedUris = client.getRedirectUris()
                                           .stream()
-                                          .filter(u -> !oAuthSettingService.isAllowedRedicrectUri(u))
+                                          .filter(u -> !oAuthSettingService.isAllowedRedirectUri(u))
                                           .toList();
       String rejectedValues = StringUtils.join(notAllowedUris, ',');
       throw new IllegalStateException("[DCR] Self Registration Client '%s' rejected. Reason: Not allowed redirect URI '%s'".formatted(client.getClientName(),
