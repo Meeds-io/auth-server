@@ -186,14 +186,14 @@ public class OAuthCorsConfigurationSource extends UrlBasedCorsConfigurationSourc
         return null;
       } else if (oAuthSettingService.isAllowAllOrigins()
                  || (CollectionUtils.isNotEmpty(oAuthSettingService.getAllowedOrigins())
-                     && oAuthSettingService.getAllowedOrigins().stream().anyMatch(o -> o.startsWith(origin)))
+                     && oAuthSettingService.getAllowedOrigins().stream().anyMatch(o -> o.equals(origin)))
                  || (CollectionUtils.isNotEmpty(oAuthSettingService.getAllowedRedirectUris())
-                     && oAuthSettingService.getAllowedRedirectUris().stream().anyMatch(o -> o.startsWith(origin)))
+                     && oAuthSettingService.getAllowedRedirectUris().stream().anyMatch(o -> o.startsWith(origin + "/")))
                  || oAuthClientService.getClients(false)
                                       .stream()
                                       .filter(c -> c.getRedirectUris() != null)
                                       .flatMap(c -> c.getRedirectUris().stream())
-                                      .anyMatch(o -> o.startsWith(origin))) {
+                                      .anyMatch(o -> o.startsWith(origin + "/"))) {
         log.trace("Allowed Cors for Origin '{}' using URI {} and HTTP Method '{}'", origin, uri, request.getMethod());
         return pathPattern;
       } else {

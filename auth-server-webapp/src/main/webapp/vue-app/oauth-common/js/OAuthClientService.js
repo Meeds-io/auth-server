@@ -32,7 +32,7 @@ export async function getClients(includeAll) {
 
 export async function getClient(id, includeAll) {
   const formData = new FormData();
-  formData.append('clientId', id);
+  formData.append('clientId', encodeClientId(id));
   if (includeAll) {
     formData.append('all', true);
   }
@@ -53,7 +53,7 @@ export async function getClientLastUsage(id, username) {
     formData.append('username', username);
   }
   const params = new URLSearchParams(formData).toString();
-  const resp = await fetch(`/analytics/rest/oauth/consent/${id}/last-usage?${params}`, {
+  const resp = await fetch(`/analytics/rest/oauth/consent/${encodeClientId(id)}/last-usage?${params}`, {
     credentials: 'include',
   });
   if (resp?.ok) {
@@ -82,7 +82,7 @@ export async function createClient(client) {
 }
 
 export async function deleteClient(id) {
-  const resp = await fetch(`/auth-server/rest/clients/${id}`, {
+  const resp = await fetch(`/auth-server/rest/clients/${encodeClientId(id)}`, {
     method: 'DELETE',
     credentials: 'include',
   });
@@ -94,7 +94,7 @@ export async function deleteClient(id) {
 export async function updateClientName(id, name) {
   const formData = new FormData();
   formData.append('name', name);
-  const resp = await fetch(`/auth-server/rest/clients/${id}/name`, {
+  const resp = await fetch(`/auth-server/rest/clients/${encodeClientId(id)}/name`, {
     headers: {
       'content-type': 'application/x-www-form-urlencoded',
     },
@@ -110,7 +110,7 @@ export async function updateClientName(id, name) {
 export async function updateClientUrl(id, url) {
   const formData = new FormData();
   formData.append('url', url);
-  const resp = await fetch(`/auth-server/rest/clients/${id}/url`, {
+  const resp = await fetch(`/auth-server/rest/clients/${encodeClientId(id)}/url`, {
     headers: {
       'content-type': 'application/x-www-form-urlencoded',
     },
@@ -126,7 +126,7 @@ export async function updateClientUrl(id, url) {
 export async function updateClientLogoUrl(id, logoUrl) {
   const formData = new FormData();
   formData.append('logoUrl', logoUrl);
-  const resp = await fetch(`/auth-server/rest/clients/${id}/logo-url`, {
+  const resp = await fetch(`/auth-server/rest/clients/${encodeClientId(id)}/logo-url`, {
     headers: {
       'content-type': 'application/x-www-form-urlencoded',
     },
@@ -142,7 +142,7 @@ export async function updateClientLogoUrl(id, logoUrl) {
 export async function updateClientRedirectUris(id, redirectUris) {
   const formData = new FormData();
   redirectUris.forEach(r => formData.append('redirectUri', r));
-  const resp = await fetch(`/auth-server/rest/clients/${id}/uris`, {
+  const resp = await fetch(`/auth-server/rest/clients/${encodeClientId(id)}/uris`, {
     headers: {
       'content-type': 'application/x-www-form-urlencoded',
     },
@@ -158,7 +158,7 @@ export async function updateClientRedirectUris(id, redirectUris) {
 export async function updateClientScopes(id, scopes) {
   const formData = new FormData();
   scopes.forEach(s => formData.append('scope', s));
-  const resp = await fetch(`/auth-server/rest/clients/${id}/scopes`, {
+  const resp = await fetch(`/auth-server/rest/clients/${encodeClientId(id)}/scopes`, {
     headers: {
       'content-type': 'application/x-www-form-urlencoded',
     },
@@ -174,7 +174,7 @@ export async function updateClientScopes(id, scopes) {
 export async function updateClientVisibility(id, displayed) {
   const formData = new FormData();
   formData.append('displayed', displayed);
-  const resp = await fetch(`/auth-server/rest/clients/${id}/display`, {
+  const resp = await fetch(`/auth-server/rest/clients/${encodeClientId(id)}/display`, {
     headers: {
       'content-type': 'application/x-www-form-urlencoded',
     },
@@ -190,7 +190,7 @@ export async function updateClientVisibility(id, displayed) {
 export async function updateClientActivation(id, enabled) {
   const formData = new FormData();
   formData.append('enabled', enabled);
-  const resp = await fetch(`/auth-server/rest/clients/${id}/enable`, {
+  const resp = await fetch(`/auth-server/rest/clients/${encodeClientId(id)}/enable`, {
     headers: {
       'content-type': 'application/x-www-form-urlencoded',
     },
@@ -201,4 +201,8 @@ export async function updateClientActivation(id, enabled) {
   if (!resp?.ok) {
     throw new Error('Server Request Error');
   }
+}
+
+function encodeClientId(id) {
+  return new TextEncoder().encode(id).toBase64(); 
 }

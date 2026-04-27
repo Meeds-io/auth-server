@@ -18,6 +18,7 @@
  */
 package io.meeds.oauth2.server.rest;
 
+import static io.meeds.oauth2.server.rest.util.EntityBuilder.decodeBase64;
 import static io.meeds.oauth2.server.rest.util.EntityBuilder.fromClientRestEntity;
 import static io.meeds.oauth2.server.rest.util.EntityBuilder.toClientRestEntity;
 
@@ -53,9 +54,11 @@ import io.meeds.oauth2.server.service.OAuthClientService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import lombok.extern.slf4j.Slf4j;
 
 @RestController
 @RequestMapping("/rest/clients")
+@Slf4j
 public class OAuthClientRest {
 
   @Autowired
@@ -96,7 +99,9 @@ public class OAuthClientRest {
                                          @RequestParam(name = "all", required = false, defaultValue = "false")
                                          boolean includeAll) {
     try {
-      RegisteredClient client = oAuthClientService.getClient(clientId, includeAll, principal.getName());
+      RegisteredClient client = oAuthClientService.getClient(decodeBase64(clientId),
+                                                             includeAll,
+                                                             principal.getName());
       OAuthClientRestEntity clientRestEntity = toClientRestEntity(client);
       if (clientRestEntity == null) {
         throw new ResponseStatusException(HttpStatus.NOT_FOUND);
@@ -157,7 +162,7 @@ public class OAuthClientRest {
                            @PathVariable("clientId")
                            String clientId) {
     try {
-      oAuthClientService.deleteClient(clientId);
+      oAuthClientService.deleteClient(decodeBase64(clientId));
     } catch (ObjectNotFoundException e) {
       throw new ResponseStatusException(HttpStatus.NOT_FOUND, e.getMessage());
     } catch (IllegalAccessException e) {
@@ -180,7 +185,7 @@ public class OAuthClientRest {
                                        @RequestParam("name")
                                        String name) {
     try {
-      oAuthClientService.updateClientName(clientId, name);
+      oAuthClientService.updateClientName(decodeBase64(clientId), name);
     } catch (ObjectNotFoundException e) {
       throw new ResponseStatusException(HttpStatus.NOT_FOUND, e.getMessage());
     } catch (IllegalAccessException e) {
@@ -203,7 +208,7 @@ public class OAuthClientRest {
                               @RequestParam("url")
                               String url) {
     try {
-      oAuthClientService.updateClientUrl(clientId, url);
+      oAuthClientService.updateClientUrl(decodeBase64(clientId), url);
     } catch (ObjectNotFoundException e) {
       throw new ResponseStatusException(HttpStatus.NOT_FOUND, e.getMessage());
     } catch (IllegalAccessException e) {
@@ -226,7 +231,7 @@ public class OAuthClientRest {
                                   @RequestParam("logoUrl")
                                   String logoUrl) {
     try {
-      oAuthClientService.updateClientLogoUrl(clientId, logoUrl);
+      oAuthClientService.updateClientLogoUrl(decodeBase64(clientId), logoUrl);
     } catch (ObjectNotFoundException e) {
       throw new ResponseStatusException(HttpStatus.NOT_FOUND, e.getMessage());
     } catch (IllegalAccessException e) {
@@ -249,7 +254,7 @@ public class OAuthClientRest {
                                        @RequestParam("redirectUri")
                                        Set<String> redirectUris) {
     try {
-      oAuthClientService.updateClientRedirectUris(clientId, redirectUris);
+      oAuthClientService.updateClientRedirectUris(decodeBase64(clientId), redirectUris);
     } catch (ObjectNotFoundException e) {
       throw new ResponseStatusException(HttpStatus.NOT_FOUND, e.getMessage());
     } catch (IllegalAccessException e) {
@@ -272,7 +277,7 @@ public class OAuthClientRest {
                                  @RequestParam("scope")
                                  Set<String> scopes) {
     try {
-      oAuthClientService.updateClientScopes(clientId, scopes);
+      oAuthClientService.updateClientScopes(decodeBase64(clientId), scopes);
     } catch (ObjectNotFoundException e) {
       throw new ResponseStatusException(HttpStatus.NOT_FOUND, e.getMessage());
     } catch (IllegalAccessException e) {
@@ -295,7 +300,7 @@ public class OAuthClientRest {
                                      @RequestParam("displayed")
                                      boolean displayed) {
     try {
-      oAuthClientService.updateClientVisibility(clientId, displayed);
+      oAuthClientService.updateClientVisibility(decodeBase64(clientId), displayed);
     } catch (ObjectNotFoundException e) {
       throw new ResponseStatusException(HttpStatus.NOT_FOUND, e.getMessage());
     } catch (IllegalAccessException e) {
@@ -318,7 +323,7 @@ public class OAuthClientRest {
                                      @RequestParam("enabled")
                                      boolean enabled) {
     try {
-      oAuthClientService.updateClientActivation(clientId, enabled);
+      oAuthClientService.updateClientActivation(decodeBase64(clientId), enabled);
     } catch (ObjectNotFoundException e) {
       throw new ResponseStatusException(HttpStatus.NOT_FOUND, e.getMessage());
     } catch (IllegalAccessException e) {

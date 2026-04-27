@@ -35,6 +35,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.server.ResponseStatusException;
 
 import io.meeds.oauth2.server.service.OAuthSettingService;
 
@@ -197,8 +198,12 @@ public class OAuthSettingRest {
   })
   public void addAllowedRedirectUri(
                                     @RequestParam("uri")
-                                    String uri) {
-    oAuthSettingService.addAllowedRedirectUri(uri);
+                                    String redirectUriPrefix) {
+    try {
+      oAuthSettingService.addAllowedRedirectUri(redirectUriPrefix);
+    } catch (IllegalArgumentException e) {
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, e.getMessage());
+    }
   }
 
   @PostMapping(path = "allowed-cimd-uris", consumes = MediaType.APPLICATION_FORM_URLENCODED_VALUE)
@@ -210,8 +215,12 @@ public class OAuthSettingRest {
   })
   public void addAllowedCimdUri(
                                 @RequestParam("uri")
-                                String uri) {
-    oAuthSettingService.addAllowedCimdUri(uri);
+                                String cimdUriPrefix) {
+    try {
+      oAuthSettingService.addAllowedCimdUri(cimdUriPrefix);
+    } catch (IllegalArgumentException e) {
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, e.getMessage());
+    }
   }
 
   @PostMapping(path = "allowed-origins", consumes = MediaType.APPLICATION_FORM_URLENCODED_VALUE)
@@ -224,7 +233,11 @@ public class OAuthSettingRest {
   public void addAllowedOrigin(
                                @RequestParam("origin")
                                String origin) {
-    oAuthSettingService.addAllowedOrigin(origin);
+    try {
+      oAuthSettingService.addAllowedOrigin(origin);
+    } catch (IllegalArgumentException e) {
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, e.getMessage());
+    }
   }
 
   @DeleteMapping(path = "allowed-redirect-uris", consumes = MediaType.APPLICATION_FORM_URLENCODED_VALUE)

@@ -40,7 +40,7 @@ export async function deleteConsentsByUser() {
 }
 
 export async function deleteConsentByUserAndClient(clientId) {
-  const resp = await fetch(`/auth-server/rest/consents/${clientId}`, {
+  const resp = await fetch(`/auth-server/rest/consents/${encodeClientId(clientId)}`, {
     method: 'DELETE',
     credentials: 'include',
   });
@@ -51,11 +51,15 @@ export async function deleteConsentByUserAndClient(clientId) {
 
 // Admin only
 export async function deleteConsentsByClient(clientId) {
-  const resp = await fetch(`/auth-server/rest/consents/${clientId}/all`, {
+  const resp = await fetch(`/auth-server/rest/consents/${encodeClientId(clientId)}/all`, {
     method: 'DELETE',
     credentials: 'include',
   });
   if (!resp?.ok) {
     throw new Error('Server Request Error');
   }
+}
+
+function encodeClientId(id) {
+  return new TextEncoder().encode(id).toBase64(); 
 }

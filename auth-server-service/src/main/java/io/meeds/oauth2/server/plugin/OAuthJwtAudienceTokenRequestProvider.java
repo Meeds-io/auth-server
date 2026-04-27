@@ -21,6 +21,8 @@ package io.meeds.oauth2.server.plugin;
 import java.util.List;
 
 import org.apache.commons.collections4.MapUtils;
+import org.apache.commons.lang3.StringUtils;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.Ordered;
 import org.springframework.security.oauth2.core.endpoint.OAuth2AuthorizationRequest;
 import org.springframework.security.oauth2.server.authorization.OAuth2Authorization;
@@ -28,19 +30,31 @@ import org.springframework.security.oauth2.server.authorization.token.OAuth2Toke
 import org.springframework.stereotype.Service;
 
 import io.meeds.oauth2.server.configuration.plugin.OAuthJwtAudienceProvider;
+import io.meeds.oauth2.server.service.OAuthSettingService;
+
+import lombok.extern.slf4j.Slf4j;
 
 @Service
+@Slf4j
 public class OAuthJwtAudienceTokenRequestProvider implements OAuthJwtAudienceProvider {
+
+  @Autowired
+  private OAuthSettingService oAuthSettingService;
 
   @Override
   public List<String> provideAudiences(OAuth2TokenContext context) {
     OAuth2Authorization authorization = context.getAuthorization();
     if (authorization != null) {
       OAuth2AuthorizationRequest authorizationRequest = authorization.getAttribute(OAuth2AuthorizationRequest.class.getName());
-      if (authorizationRequest != null
-          && MapUtils.isNotEmpty(authorizationRequest.getAdditionalParameters())
-          && MapUtils.getString(authorizationRequest.getAdditionalParameters(), "resource") != null) {
-        return List.of(MapUtils.getString(authorizationRequest.getAdditionalParameters(), "resource"));
+      if (authorizationRequest != null && MapUtils.isNotEmpty(authorizationRequest.getAdditionalParameters())) {
+        String resource = MapUtils.getString(authorizationRequest.getAdditionalParameters(), "resource");
+        if (StringUtils.isNotBlank(resource)) {
+          if (oAuthSettingService.getAllowedAudiences().contains(resource)) {
+            return List.of(resource);
+          } else {
+            log.warn("OAuth Resource {} isn't allowed as Audience", resource);
+          }
+        }
       }
     }
     return null; // NOSONAR

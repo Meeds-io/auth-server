@@ -44,6 +44,8 @@ import org.springframework.security.config.annotation.method.configuration.Enabl
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.CsrfConfigurer;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.core.ClientAuthenticationMethod;
 import org.springframework.security.oauth2.server.authorization.OAuth2AuthorizationServerMetadata;
 import org.springframework.security.oauth2.server.authorization.config.annotation.web.configurers.OAuth2AuthorizationEndpointConfigurer;
@@ -61,14 +63,15 @@ import org.springframework.security.web.context.DelegatingSecurityContextReposit
 import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.security.web.context.RequestAttributeSecurityContextRepository;
 import org.springframework.security.web.context.SecurityContextRepository;
-import org.springframework.security.web.firewall.HttpFirewall;
-import org.springframework.security.web.firewall.StrictHttpFirewall;
 import org.springframework.security.web.util.matcher.MediaTypeRequestMatcher;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import org.exoplatform.commons.utils.CommonsUtils;
+import org.exoplatform.container.PortalContainer;
+import org.exoplatform.services.listener.ListenerService;
+import org.exoplatform.web.security.codec.CodecInitializer;
 
 import io.meeds.oauth2.server.configuration.model.OAuthDefaultSettings;
 import io.meeds.oauth2.server.plugin.OAuthAuthorizationRequestConverter;
@@ -77,7 +80,6 @@ import io.meeds.oauth2.server.security.OAuthCimdAuthenticationProvider;
 import io.meeds.oauth2.server.security.OAuthDcrAuthenticationProvider;
 import io.meeds.oauth2.server.security.OAuthPortalAuthenticationProvider;
 import io.meeds.oauth2.server.service.OAuthClientService;
-import io.meeds.oauth2.server.service.OAuthPasswordEncoder;
 import io.meeds.oauth2.server.service.OAuthSettingService;
 import io.meeds.oauth2.server.web.OAuthCorsConfigurationSource;
 import io.meeds.oauth2.server.web.OAuthPortalPreAuthenticatedFilter;
@@ -184,13 +186,6 @@ public class OAuthSecurityConfiguration {
   }
 
   @Bean
-  HttpFirewall allowDoubleSlashFirewall() {
-    StrictHttpFirewall firewall = new StrictHttpFirewall();
-    firewall.setAllowUrlEncodedDoubleSlash(true);
-    return firewall;
-  }
-
-  @Bean
   OAuthPortalPreAuthenticatedFilter portalPreAuthenticatedProcessingFilter(OAuthPortalAuthenticationProvider portalAuthenticationManager,
                                                                            SecurityContextRepository securityContextRepository) {
     OAuthPortalPreAuthenticatedFilter filter = new OAuthPortalPreAuthenticatedFilter(portalAuthenticationManager);
@@ -236,10 +231,22 @@ public class OAuthSecurityConfiguration {
    */
   @Bean("oauthAuthenticationProvider")
   OAuthDcrAuthenticationProvider oauthAuthenticationProvider(OAuthClientService oAuthClientService,
-                                                             OAuthPasswordEncoder passwordEncoder) {
-    return new OAuthDcrAuthenticationProvider(oAuthClientService, passwordEncoder);
+                                                             CodecInitializer codecInitializer,
+                                                             PasswordEncoder passwordEncoder,
+                                                             ListenerService listenerService) {
+    return new OAuthDcrAuthenticationProvider(oAuthClientService,
+                                              codecInitializer,
+                                              passwordEncoder,
+                                              listenerService);
   }
   // @formatter:on
+
+  @Bean
+  PasswordEncoder passwordEncoder(PortalContainer portalContainer) {
+    PasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
+    portalContainer.registerComponentInstance(PasswordEncoder.class, passwordEncoder);
+    return passwordEncoder;
+  }
 
   @Bean
   RestClient restClient() {

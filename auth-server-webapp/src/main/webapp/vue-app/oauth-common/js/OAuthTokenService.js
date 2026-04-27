@@ -51,11 +51,25 @@ export async function deleteTokenById(id) {
 
 // Admin only
 export async function deleteTokensByClient(clientId) {
-  const resp = await fetch(`/auth-server/rest/tokens/byClient/${clientId}`, {
+  const resp = await fetch(`/auth-server/rest/tokens/byClient/${encodeClientId(clientId)}`, {
     method: 'DELETE',
     credentials: 'include',
   });
   if (!resp?.ok) {
     throw new Error('Server Request Error');
   }
+}
+
+export async function deleteTokensByUserAndClient(clientId, username) {
+  const resp = await fetch(`/auth-server/rest/tokens//byClient/${encodeClientId(clientId)}/${username}`, {
+    method: 'DELETE',
+    credentials: 'include',
+  });
+  if (!resp?.ok) {
+    throw new Error('Server Request Error');
+  }
+}
+
+function encodeClientId(id) {
+  return new TextEncoder().encode(id).toBase64(); 
 }
