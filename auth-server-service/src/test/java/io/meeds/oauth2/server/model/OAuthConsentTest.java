@@ -18,29 +18,24 @@
  */
 package io.meeds.oauth2.server.model;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
 import java.time.Instant;
-import java.util.List;
+import java.util.Set;
 
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import org.junit.jupiter.api.Test;
 
-@Data
-@NoArgsConstructor
-@AllArgsConstructor
-public class OAuthJwkSet {
+class OAuthConsentTest {
 
-  private List<OAuthJwkEntry> entries;
+  @Test
+  void recordShouldExposeAllComponents() {
+    Instant createdDate = Instant.parse("2026-01-01T10:00:00Z");
 
-  @Data
-  @NoArgsConstructor
-  @AllArgsConstructor
-  public static class OAuthJwkEntry {
+    OAuthConsent consent = new OAuthConsent("client", "user", Set.of("openid"), createdDate);
 
-    private String  keyPairJson;
-
-    private Instant activatedAt;
-
+    assertEquals("client", consent.clientId());
+    assertEquals("user", consent.username());
+    assertEquals(Set.of("openid"), consent.scopes());
+    assertEquals(createdDate, consent.createdDate());
   }
-
 }

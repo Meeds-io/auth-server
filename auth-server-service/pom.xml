@@ -31,10 +31,13 @@
   <artifactId>auth-server-service</artifactId>
   <packaging>jar</packaging>
   <name>Meeds:: Auth Server - Service</name>
+  <properties>
+    <exo.test.coverage.ratio>0.64</exo.test.coverage.ratio>
+  </properties>
   <dependencies>
     <dependency>
       <groupId>io.meeds.social</groupId>
-      <artifactId>social-component-api</artifactId>
+      <artifactId>social-component-core</artifactId>
       <scope>provided</scope>
     </dependency>
 
@@ -53,8 +56,49 @@
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-oauth2-client</artifactId>
     </dependency>
+
+    <!-- Test scope -->
+    <dependency>
+      <groupId>io.meeds.social</groupId>
+      <artifactId>social-component-core</artifactId>
+      <type>test-jar</type>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter-engine</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.junit.platform</groupId>
+      <artifactId>junit-platform-launcher</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-test</artifactId>
+      <scope>test</scope>
+      <exclusions>
+        <exclusion>
+          <groupId>com.vaadin.external.google</groupId>
+          <artifactId>android-json</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
   </dependencies>
   <build>
     <finalName>auth-server-service</finalName>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <configuration>
+          <forkMode>always</forkMode>
+          <forkCount>1</forkCount>
+          <reuseForks>false</reuseForks>
+          <runOrder>alphabetical</runOrder>
+        </configuration>
+      </plugin>
+    </plugins>
   </build>
 </project>

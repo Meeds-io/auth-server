@@ -18,29 +18,18 @@
  */
 package io.meeds.oauth2.server.model;
 
-import java.time.Instant;
-import java.util.List;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import org.junit.jupiter.api.Test;
 
-@Data
-@NoArgsConstructor
-@AllArgsConstructor
-public class OAuthJwkSet {
+class ClientRegistrationRateLimitExceptionTest {
 
-  private List<OAuthJwkEntry> entries;
+  @Test
+  void constructorShouldSetMessageAndRemainingSeconds() {
+    ClientRegistrationRateLimitException exception =
+        new ClientRegistrationRateLimitException("Too many registration attempts", 42);
 
-  @Data
-  @NoArgsConstructor
-  @AllArgsConstructor
-  public static class OAuthJwkEntry {
-
-    private String  keyPairJson;
-
-    private Instant activatedAt;
-
+    assertEquals("Too many registration attempts", exception.getMessage());
+    assertEquals(42, exception.getRemainingSeconds());
   }
-
 }

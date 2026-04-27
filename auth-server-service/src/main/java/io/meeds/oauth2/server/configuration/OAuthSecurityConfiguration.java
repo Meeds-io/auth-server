@@ -69,7 +69,6 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import org.exoplatform.commons.utils.CommonsUtils;
-import org.exoplatform.container.PortalContainer;
 import org.exoplatform.services.listener.ListenerService;
 import org.exoplatform.web.security.codec.CodecInitializer;
 
@@ -242,10 +241,8 @@ public class OAuthSecurityConfiguration {
   // @formatter:on
 
   @Bean
-  PasswordEncoder passwordEncoder(PortalContainer portalContainer) {
-    PasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
-    portalContainer.registerComponentInstance(PasswordEncoder.class, passwordEncoder);
-    return passwordEncoder;
+  PasswordEncoder passwordEncoder() {
+    return new BCryptPasswordEncoder();
   }
 
   @Bean
