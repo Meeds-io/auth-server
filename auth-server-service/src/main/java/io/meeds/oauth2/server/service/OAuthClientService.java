@@ -459,6 +459,8 @@ public class OAuthClientService {
                                       .clientId(clientId)
                                       .clientIdIssuedAt(Instant.now())
                                       .scopes(scopes -> {
+                                        scopes.remove(OidcScopes.OPENID);
+                                        scopes.remove(Utils.OFFLINE_ACCESS_SCOPE);
                                         if (CollectionUtils.isEmpty(scopes)) {
                                           scopes.addAll(oAuthSettingService.getScopes());
                                         } else {
