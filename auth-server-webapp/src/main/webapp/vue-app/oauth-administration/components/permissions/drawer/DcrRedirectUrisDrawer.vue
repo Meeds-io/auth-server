@@ -147,6 +147,7 @@ export default {
     rules() {
       return [
         v => !!v?.length && (this.isValidUrl(v) || this.$t('oauth.administration.invalidUrl')),
+        v => !!v?.length && (this.hasPathPrefix(v) || this.$t('oauth.administration.invalidUrlWithPath')),
         v => !!v?.length && (!this.isUriExists(v) || this.$t('oauth.administration.clientsSelfRegistrationDCR.alreadyExists')),
       ];
     },
@@ -172,6 +173,13 @@ export default {
     },
     isValidUrl(uri) {
       return this.$utils.isValidUrl(uri);
+    },
+    hasPathPrefix(uri) {
+      try {
+        return (new URL(uri)?.pathname?.trim?.()?.length || 0) > 2;
+      } catch {
+        return false;
+      }
     },
     async addRedirectUri() {
       this.$refs.form.validate();

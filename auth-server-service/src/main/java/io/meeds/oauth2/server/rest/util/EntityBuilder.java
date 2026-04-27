@@ -27,6 +27,8 @@ import static io.meeds.oauth2.server.util.EntityMapper.CLIENT_SYSTEM_SETTING;
 import static io.meeds.oauth2.server.util.EntityMapper.CLIENT_URI_SETTING;
 import static io.meeds.oauth2.server.util.EntityMapper.CLIENT_UUID_SETTING;
 
+import java.util.Base64;
+
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.security.oauth2.core.AuthorizationGrantType;
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClient;
@@ -35,6 +37,9 @@ import org.springframework.security.oauth2.server.authorization.settings.ClientS
 
 import io.meeds.oauth2.server.rest.model.OAuthClientRestEntity;
 
+import lombok.extern.slf4j.Slf4j;
+
+@Slf4j
 public class EntityBuilder {
 
   private EntityBuilder() {
@@ -83,6 +88,19 @@ public class EntityBuilder {
                              .authorizationGrantType(AuthorizationGrantType.REFRESH_TOKEN)
                              .clientSettings(clientSettingsBuilder.build())
                              .build();
+    }
+  }
+
+  public static String decodeBase64(String clientId) {
+    try {
+      return new String(Base64.getDecoder().decode(clientId));
+    } catch (Exception e) {
+      if (log.isDebugEnabled()) {
+        log.warn("Error while decoding Client Id '{}'. Use it as is.", clientId, e);
+      } else {
+        log.warn("Error while decoding Client Id '{}'. Use it as is. Error: {}", clientId, e.getMessage());
+      }
+      return clientId;
     }
   }
 

@@ -18,16 +18,9 @@
  */
 package io.meeds.oauth2.server.configuration;
 
-import java.security.KeyPair;
-import java.security.KeyPairGenerator;
-import java.security.NoSuchAlgorithmException;
-import java.security.interfaces.RSAPrivateKey;
-import java.security.interfaces.RSAPublicKey;
-import java.text.ParseException;
 import java.time.Instant;
 import java.util.UUID;
 
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.oauth2.core.AuthorizationGrantType;
@@ -46,31 +39,15 @@ import org.springframework.security.oauth2.server.authorization.token.OAuth2Toke
 import org.springframework.security.oauth2.server.authorization.token.OAuth2TokenCustomizer;
 import org.springframework.security.oauth2.server.authorization.token.OAuth2TokenGenerator;
 
-import com.nimbusds.jose.jwk.JWKSet;
-import com.nimbusds.jose.jwk.KeyUse;
-import com.nimbusds.jose.jwk.RSAKey;
-import com.nimbusds.jose.jwk.source.ImmutableJWKSet;
 import com.nimbusds.jose.jwk.source.JWKSource;
 import com.nimbusds.jose.proc.SecurityContext;
 
-import org.exoplatform.commons.api.settings.SettingService;
-import org.exoplatform.commons.api.settings.SettingValue;
-import org.exoplatform.commons.api.settings.data.Context;
-import org.exoplatform.commons.api.settings.data.Scope;
-import org.exoplatform.web.security.codec.CodecInitializer;
-import org.exoplatform.web.security.security.TokenServiceInitializationException;
-
+import io.meeds.oauth2.server.service.OAuthJwkService;
 import io.meeds.oauth2.server.service.OAuthJwtCustomizerService;
 import io.meeds.oauth2.server.util.Utils;
 
 @Configuration
 public class OAuthJwtConfiguration {
-
-  private static final Context JWKS_CONTEXT = Context.GLOBAL.id("meeds.oauth2.jwks");
-
-  private static final Scope   JWKS_SCOPE   = Scope.GLOBAL.id("jwks");
-
-  private static final String  JWKS_KEY     = "jwks-v1";
 
   @Bean
   JwtDecoder jwtDecoder(JWKSource<SecurityContext> jwkSource) {
@@ -83,27 +60,8 @@ public class OAuthJwtConfiguration {
   }
 
   @Bean
-  JWKSource<SecurityContext> jwkSource(SettingService settingService,
-                                       CodecInitializer codecInitializer,
-                                       @Value("${meeds.oauth2.jwks.key-size:3072}")
-                                       int keySize) throws TokenServiceInitializationException,
-                                                    ParseException,
-                                                    NoSuchAlgorithmException {
-    SettingValue<?> settingValue = settingService.get(JWKS_CONTEXT, JWKS_SCOPE, JWKS_KEY);
-
-    JWKSet jwkSet;
-    if (settingValue != null && settingValue.getValue() != null) {
-      String jwksJson = codecInitializer.getCodec().decode(settingValue.getValue().toString());
-      jwkSet = JWKSet.parse(jwksJson);
-    } else {
-      jwkSet = generate(keySize);
-      String jwksJson = jwkSet.toString(false);
-      settingService.set(JWKS_CONTEXT,
-                         JWKS_SCOPE,
-                         JWKS_KEY,
-                         SettingValue.create(codecInitializer.getCodec().encode(jwksJson)));
-    }
-    return new ImmutableJWKSet<>(jwkSet);
+  JWKSource<SecurityContext> jwkSource(OAuthJwkService oAuthJwkService) {
+    return (jwkSelector, securityContext) -> jwkSelector.select(oAuthJwkService.getJwkSet());
   }
 
   @Bean
@@ -117,19 +75,6 @@ public class OAuthJwtConfiguration {
     return new DelegatingOAuth2TokenGenerator(jwtGenerator,
                                               new OAuth2AccessTokenGenerator(),
                                               this::generateRefreshToken);
-  }
-
-  private JWKSet generate(int keysize) throws NoSuchAlgorithmException {
-    KeyPairGenerator generator = KeyPairGenerator.getInstance("RSA");
-    generator.initialize(keysize);
-    KeyPair keyPair = generator.generateKeyPair();
-    RSAKey.Builder rsaKeyBuilder = new RSAKey.Builder((RSAPublicKey) keyPair.getPublic());
-    RSAKey rsaKey = rsaKeyBuilder.privateKey((RSAPrivateKey) keyPair.getPrivate())
-                                 .keyUse(KeyUse.SIGNATURE)
-                                 .algorithm(com.nimbusds.jose.JWSAlgorithm.RS256)
-                                 .keyID("sig-" + UUID.randomUUID())
-                                 .build();
-    return new JWKSet(rsaKey);
   }
 
   private OAuth2RefreshToken generateRefreshToken(OAuth2TokenContext context) {

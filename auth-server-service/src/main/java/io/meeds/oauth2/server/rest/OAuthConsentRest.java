@@ -18,6 +18,8 @@
  */
 package io.meeds.oauth2.server.rest;
 
+import static io.meeds.oauth2.server.rest.util.EntityBuilder.decodeBase64;
+
 import java.security.Principal;
 import java.util.List;
 
@@ -76,7 +78,7 @@ public class OAuthConsentRest {
   public void deleteConsentByUserAndClient(Principal principal,
                                            @PathVariable("clientId")
                                            String clientId) {
-    oAuthConsentService.deleteConsentByUserAndClient(principal.getName(), clientId);
+    oAuthConsentService.deleteConsentByUserAndClient(principal.getName(), decodeBase64(clientId));
   }
 
   @DeleteMapping("/{clientId}/all")
@@ -89,7 +91,7 @@ public class OAuthConsentRest {
   public void deleteConsentsByClient(
                                      @PathVariable("clientId")
                                      String clientId) {
-    oAuthConsentService.deleteConsentsByClient(clientId);
+    oAuthConsentService.deleteConsentsByClient(decodeBase64(clientId));
   }
 
 }

@@ -18,7 +18,9 @@
  */
 package io.meeds.oauth2.server.service;
 
-import static io.meeds.oauth2.server.util.EntityMapper.*;
+import static io.meeds.oauth2.server.util.EntityMapper.CLIENT_ENABLED_SETTING;
+import static io.meeds.oauth2.server.util.EntityMapper.CLIENT_IS_CIMD_SETTING;
+import static io.meeds.oauth2.server.util.EntityMapper.CLIENT_IS_DCR_SETTING;
 import static io.meeds.oauth2.server.util.EntityMapper.CLIENT_LOGO_URI_SETTING;
 import static io.meeds.oauth2.server.util.EntityMapper.CLIENT_SYSTEM_SETTING;
 import static io.meeds.oauth2.server.util.EntityMapper.CLIENT_URI_SETTING;
@@ -28,12 +30,14 @@ import java.io.IOException;
 import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -61,20 +65,20 @@ import org.exoplatform.social.core.manager.IdentityManager;
 import org.exoplatform.upload.UploadResource;
 import org.exoplatform.upload.UploadService;
 
+import io.meeds.oauth2.server.model.ClientRegistrationRateLimitException;
 import io.meeds.oauth2.server.plugin.OAuthClientAttachmentPlugin;
 import io.meeds.oauth2.server.plugin.OAuthDcrValidator;
 import io.meeds.oauth2.server.storage.OAuthClientStorage;
 import io.meeds.oauth2.server.util.Utils;
 
-import lombok.SneakyThrows;
+import lombok.Synchronized;
 import lombok.extern.slf4j.Slf4j;
 
 @Service
 @Slf4j
 public class OAuthClientService {
 
-  public static final String      ATTACHMENT_URL_PATTERN      =
-                                                         "%s/portal/rest/v1/social/attachments/%s/%s/%s";
+  public static final String      ATTACHMENT_URL_PATTERN      = "%s/portal/rest/v1/social/attachments/%s/%s/%s";
 
   private static final String     CLIENT_NAME_MANDATORY_MSG   = "Client Name is mandatory";
 
@@ -90,6 +94,8 @@ public class OAuthClientService {
   private static final String     REDIRECT_NAME_MANDATORY_MSG = "Client Name is mandatory";
 
   private static final String     SCOPES_MANDATORY_MSG        = "Client Scopes is mandatory";
+
+  private static final int        REGISTER_RATE_SECONDS_COUNT = 60;
 
   @Autowired
   private RestClient              restClient;
@@ -118,11 +124,18 @@ public class OAuthClientService {
   @Autowired
   private List<OAuthDcrValidator> openRegistrationValidators;
 
-  @Value("${meeds.oauth.dcr.enabled:true}")
-  private boolean                 dcrEnabled;
+  @Value("${meeds.oauth.selfRegister.enabled:true}")
+  private boolean                 selfRegisterEnabled;
 
-  @Value("${meeds.oauth.dcr.maxLogoBytes:20971520}")
+  @Value("${meeds.oauth.selfRegister.maxLogoBytes:20971520}")
   private int                     maxLogoBytes;
+
+  @Value("${meeds.oauth.selfRegister.maxRatePerMinute:10}")
+  private int                     clientSelfRegisterRate;
+
+  private AtomicInteger           registerCount               = new AtomicInteger();
+
+  private Instant                 lastRegisterCountInstant;
 
   public List<RegisteredClient> getAllClients() {
     return getClients(true);
@@ -164,18 +177,24 @@ public class OAuthClientService {
   }
 
   @SuppressWarnings("removal")
-  @SneakyThrows
-  public RegisteredClient register(RegisteredClient publicClient) {
+  public RegisteredClient register(RegisteredClient publicClient) throws ClientRegistrationRateLimitException,
+                                                                  IllegalAccessException,
+                                                                  ObjectNotFoundException {
+    if (getAndIncrementRegisterCount() > clientSelfRegisterRate) {
+      throw new ClientRegistrationRateLimitException("[DCR / CIMD] Max Clients Self REgister Requests Reached",
+                                                     REGISTER_RATE_SECONDS_COUNT - getRateSecondsDiff());
+    }
     String clientId = computePublicClientId(publicClient);
     RegisteredClient existingClient = getClient(clientId, true);
     if (existingClient == null) {
-      if (!dcrEnabled) {
+      if (!selfRegisterEnabled) {
         throw new IllegalStateException("[DCR / CIMD] Feature is disabled");
       }
       RegisteredClient clientToSave = normalizeClient(clientId, publicClient, existingClient, true);
 
       // Only allowed Redirect URIs will be able to self register as public
-      // client Validation is necessary only when modification will made on the
+      // client Validation is necessary only when modification will made on
+      // the
       // store
       openRegistrationValidators.forEach(r -> r.validate(clientToSave));
 
@@ -583,6 +602,19 @@ public class OAuthClientService {
 
   private long getSuperAdminIdentityId() {
     return identityManager.getOrCreateUserIdentity(userAcl.getSuperUser()).getIdentityId();
+  }
+
+  @Synchronized
+  private int getAndIncrementRegisterCount() {
+    if (lastRegisterCountInstant == null || getRateSecondsDiff() >= REGISTER_RATE_SECONDS_COUNT) {
+      lastRegisterCountInstant = Instant.now();
+      registerCount.set(0);
+    }
+    return registerCount.incrementAndGet();
+  }
+
+  private long getRateSecondsDiff() {
+    return lastRegisterCountInstant == null ? 0l : Duration.between(lastRegisterCountInstant, Instant.now()).getSeconds();
   }
 
 }

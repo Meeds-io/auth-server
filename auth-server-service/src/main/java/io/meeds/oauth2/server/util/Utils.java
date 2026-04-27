@@ -18,10 +18,12 @@
  */
 package io.meeds.oauth2.server.util;
 
+import java.net.IDN;
 import java.net.Inet6Address;
 import java.net.InetAddress;
 import java.net.URI;
 import java.net.UnknownHostException;
+import java.util.Locale;
 
 public class Utils {
 
@@ -33,11 +35,10 @@ public class Utils {
 
   public static URI validateUrl(String raw) throws UnknownHostException { // NOSONAR
     URI uri = URI.create(raw).normalize();
-
     if (!"https".equalsIgnoreCase(uri.getScheme())) {
-      throw new IllegalArgumentException("Only https logo URLs are allowed");
+      throw new IllegalArgumentException("Only HTTPS URLs are allowed");
     }
-    String host = uri.getHost();
+    String host = getHost(uri);
     if (host == null || host.isBlank()) {
       throw new IllegalArgumentException("Missing host");
     }
@@ -78,4 +79,9 @@ public class Utils {
     }
     return uri;
   }
+
+  private static String getHost(URI uri) {
+    return IDN.toASCII(uri.getHost(), IDN.ALLOW_UNASSIGNED).toLowerCase(Locale.ROOT);
+  }
+
 }

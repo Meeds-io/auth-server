@@ -79,9 +79,9 @@ public class OAuthTokenService {
   public void deleteTokenById(String tokenId, String username) throws IllegalAccessException, ObjectNotFoundException {
     OAuth2Authorization token = storage.findById(tokenId);
     if (token == null) {
-      throw new ObjectNotFoundException("Token with Id %s doesn't exists");
+      throw new ObjectNotFoundException("Token with Id %s doesn't exists".formatted(tokenId));
     } else if (!token.getPrincipalName().equals(username)
-               || !userAcl.isAdministrator(userAcl.getUserIdentity(username))) {
+               && !userAcl.isAdministrator(userAcl.getUserIdentity(username))) {
       throw new IllegalAccessException("Token with Id %s isn't managed by user");
     }
     storage.remove(token);
