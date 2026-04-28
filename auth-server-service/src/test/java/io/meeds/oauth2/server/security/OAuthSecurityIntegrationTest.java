@@ -23,12 +23,14 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.not;
+import static org.junit.Assert.assertNotNull;
 import static org.springframework.http.HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN;
 import static org.springframework.http.HttpHeaders.AUTHORIZATION;
 import static org.springframework.http.HttpHeaders.CONTENT_TYPE;
 import static org.springframework.http.HttpHeaders.ORIGIN;
 import static org.springframework.http.MediaType.APPLICATION_FORM_URLENCODED_VALUE;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -37,13 +39,18 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.net.URI;
+import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.time.Duration;
+import java.util.Arrays;
 import java.util.Base64;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -51,13 +58,17 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.http.HttpHeaders;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.core.AuthorizationGrantType;
 import org.springframework.security.oauth2.core.ClientAuthenticationMethod;
 import org.springframework.security.oauth2.core.oidc.OidcScopes;
+import org.springframework.security.oauth2.server.authorization.OAuth2AuthorizationConsent;
+import org.springframework.security.oauth2.server.authorization.OAuth2AuthorizationConsentService;
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClient;
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClientRepository;
 import org.springframework.security.oauth2.server.authorization.settings.ClientSettings;
+import org.springframework.security.oauth2.server.authorization.settings.OAuth2TokenFormat;
 import org.springframework.security.oauth2.server.authorization.settings.TokenSettings;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
@@ -75,78 +86,96 @@ import io.meeds.oauth2.server.test.OAuthServiceIntegrationTestSupport;
 @DisplayName("OAuth2 security integration suite")
 class OAuthSecurityIntegrationTest extends OAuthServiceIntegrationTestSupport {
 
-  private static final String        AS_METADATA_ENDPOINT             = "/.well-known/oauth-authorization-server";
+  private static final String               USERNAME                         = "root";
 
-  private static final String        OIDC_METADATA_ENDPOINT           = "/.well-known/openid-configuration";
+  private static final String               USERS_ROLE                       = "users";
 
-  private static final String        AUTHORIZE_ENDPOINT               = "/oauth2/authorize";
+  private static final String               ACCESS_TOKEN_PATH                = "$.access_token";
 
-  private static final String        TOKEN_ENDPOINT                   = "/oauth2/token";
+  private static final String               AS_METADATA_ENDPOINT             = "/.well-known/oauth-authorization-server";
 
-  private static final String        INTROSPECTION_ENDPOINT           = "/oauth2/introspect";
+  private static final String               OIDC_METADATA_ENDPOINT           = "/.well-known/openid-configuration";
 
-  private static final String        JWKS_ENDPOINT                    = "/oauth2/jwks";
+  private static final String               AUTHORIZE_ENDPOINT               = "/oauth2/authorize";
 
-  private static final String        DCR_ENDPOINT                     = "/oauth2/register";
+  private static final String               TOKEN_ENDPOINT                   = "/oauth2/token";
 
-  private static final String        CLIENT_ORIGIN                    = "https://client.com";
+  private static final String               INTROSPECTION_ENDPOINT           = "/oauth2/introspect";
 
-  private static final String        REDIRECT_URI                     = CLIENT_ORIGIN + "/callback";
+  private static final String               JWKS_ENDPOINT                    = "/oauth2/jwks";
 
-  private static final String        CODE_CHALLENGE_METHOD_PARAM      = "code_challenge_method";
+  private static final String               DCR_ENDPOINT                     = "/oauth2/register";
 
-  private static final String        CODE_CHALLENGE_PARAM             = "code_challenge";
+  private static final String               CLIENT_ORIGIN                    = "https://client.com";
 
-  private static final String        STATE_PARAM                      = "state";
+  private static final String               REDIRECT_URI                     = CLIENT_ORIGIN + "/callback";
 
-  private static final String        REDIRECT_URI_PARAM               = "redirect_uri";
+  private static final String               CODE_CHALLENGE_METHOD_PARAM      = "code_challenge_method";
 
-  private static final String        CLIENT_ID_PARAM                  = "client_id";
+  private static final String               CODE_CHALLENGE_PARAM             = "code_challenge";
 
-  private static final String        RESPONSE_TYPE_PARAM              = "response_type";
+  private static final String               STATE_PARAM                      = "state";
 
-  private static final String        SCOPE_PARAM                      = "scope";
+  private static final String               REDIRECT_URI_PARAM               = "redirect_uri";
 
-  private static final String        TOKEN_ENDPOINT_AUTH_METHOD_PARAM = "token_endpoint_auth_method";
+  private static final String               CLIENT_ID_PARAM                  = "client_id";
 
-  private static final String        RESPONSE_TYPES_PARAM             = "response_types";
+  private static final String               RESPONSE_TYPE_PARAM              = "response_type";
 
-  private static final String        GRANT_TYPES_PARAM                = "grant_types";
+  private static final String               SCOPE_PARAM                      = "scope";
 
-  private static final String        REDIRECT_URIS_PARAM              = "redirect_uris";
+  private static final String               TOKEN_ENDPOINT_AUTH_METHOD_PARAM = "token_endpoint_auth_method";
 
-  private static final String        CLIENT_NAME_PARAM                = "client_name";
+  private static final String               RESPONSE_TYPES_PARAM             = "response_types";
 
-  private static final String        RESOURCE_PARAM                   = "resource";
+  private static final String               GRANT_TYPES_PARAM                = "grant_types";
 
-  private static final String        GRANT_TYPE_PARAM                 = "grant_type";
+  private static final String               REDIRECT_URIS_PARAM              = "redirect_uris";
 
-  private static final String        ERROR_JSON_PATH                  = "$.error";
+  private static final String               CLIENT_NAME_PARAM                = "client_name";
 
-  private static final String        TOKEN_TYPE_PATH                  = "$.token_type";
+  private static final String               RESOURCE_PARAM                   = "resource";
 
-  private static final String        CLIENT_SECRET_VALUE              = "secret";
+  private static final String               GRANT_TYPE_PARAM                 = "grant_type";
 
-  private static final String        BEARER_VALUE                     = "Bearer";
+  private static final String               TOKEN_PARAM                      = "token";
 
-  private static final String        INVALID_TOKEN_ERROR              = "invalid_token";
+  private static final String               ERROR_PATH                       = "$.error";
 
-  private final ObjectMapper         objectMapper                     = new ObjectMapper();
+  private static final String               TOKEN_TYPE_PATH                  = "$.token_type";
+
+  private static final String               ACTIVE_PATH                      = "$.active";
+
+  private static final String               CLIENT_ID_PATH                   = "$.client_id";
+
+  private static final String               CODE_VERIFIER                    =
+                                                          "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ012345678901234567890123456789";
+
+  private static final String               CLIENT_SECRET_VALUE              = "secret";
+
+  private static final String               BEARER_VALUE                     = "Bearer";
+
+  private static final String               INVALID_TOKEN_ERROR              = "invalid_token";
+
+  private final ObjectMapper                objectMapper                     = new ObjectMapper();
 
   @Autowired
-  private OAuthSettingService        oAuthSettingService;
+  private OAuthSettingService               oAuthSettingService;
 
   @Autowired
-  private OAuthClientService         oAuthClientService;
+  private OAuthClientService                oAuthClientService;
 
   @Autowired
-  private RegisteredClientRepository registeredClientRepository;
+  private RegisteredClientRepository        registeredClientRepository;
 
   @Autowired
-  private PasswordEncoder            passwordEncoder;
+  private OAuth2AuthorizationConsentService authorizationConsentService;
 
   @Autowired
-  private MockMvc                    mvc;
+  private PasswordEncoder                   passwordEncoder;
+
+  @Autowired
+  private MockMvc                           mvc;
 
   @BeforeEach
   @Override
@@ -162,7 +191,7 @@ class OAuthSecurityIntegrationTest extends OAuthServiceIntegrationTestSupport {
                                                      .content(toJson(dcrRegistration(List.of(REDIRECT_URI),
                                                                                      List.of(AuthorizationGrantType.AUTHORIZATION_CODE.getValue())))))
                           .andExpect(status().isCreated())
-                          .andExpect(jsonPath("$.client_id").isNotEmpty())
+                          .andExpect(jsonPath(CLIENT_ID_PATH).isNotEmpty())
                           .andExpect(jsonPath("$.redirect_uris[0]").value(REDIRECT_URI))
                           .andExpect(jsonPath("$.token_endpoint_auth_method").value("none"))
                           .andReturn();
@@ -178,7 +207,7 @@ class OAuthSecurityIntegrationTest extends OAuthServiceIntegrationTestSupport {
                                   .content(toJson(dcrRegistration(List.of(redirectUri),
                                                                   List.of(AuthorizationGrantType.AUTHORIZATION_CODE.getValue())))))
        .andExpect(status().isUnauthorized())
-       .andExpect(jsonPath(ERROR_JSON_PATH).value(INVALID_TOKEN_ERROR));
+       .andExpect(jsonPath(ERROR_PATH).value(INVALID_TOKEN_ERROR));
   }
 
   @Test
@@ -226,7 +255,7 @@ class OAuthSecurityIntegrationTest extends OAuthServiceIntegrationTestSupport {
                                          .param(CLIENT_ID_PARAM, client.getClientId())
                                          .param(REDIRECT_URI_PARAM, redirectUri)
                                          .param(SCOPE_PARAM, OidcScopes.OPENID)
-                                         .param(STATE_PARAM, "state-" + UUID.randomUUID())
+                                         .param(STATE_PARAM, getRandomState())
                                          .param(CODE_CHALLENGE_PARAM, "abcdefghijklmnopqrstuvwxyz012345678901234567890123456789")
                                          .param(CODE_CHALLENGE_METHOD_PARAM, "S256"))
          .andExpect(status().isBadRequest())
@@ -258,7 +287,7 @@ class OAuthSecurityIntegrationTest extends OAuthServiceIntegrationTestSupport {
   @Test
   @DisplayName("Client Credentials Token Uses Default Client Audience")
   void clientCredentialsTokenUsesDefaultClientAudience() throws Exception {
-    RegisteredClient client = confidentialClient("audience-client-" + UUID.randomUUID(), CLIENT_SECRET_VALUE);
+    RegisteredClient client = confidentialOpaqueClient("audience-client-" + UUID.randomUUID(), CLIENT_SECRET_VALUE);
     registeredClientRepository.save(client);
 
     mvc.perform(post(TOKEN_ENDPOINT).contentType(APPLICATION_FORM_URLENCODED_VALUE)
@@ -267,7 +296,7 @@ class OAuthSecurityIntegrationTest extends OAuthServiceIntegrationTestSupport {
                                     .param(SCOPE_PARAM, OidcScopes.OPENID)
                                     .param(RESOURCE_PARAM, "https://evil.example"))
        .andExpect(status().isOk())
-       .andExpect(jsonPath("$.access_token").exists())
+       .andExpect(jsonPath(ACCESS_TOKEN_PATH).exists())
        .andExpect(jsonPath(TOKEN_TYPE_PATH).value(BEARER_VALUE));
   }
 
@@ -303,7 +332,7 @@ class OAuthSecurityIntegrationTest extends OAuthServiceIntegrationTestSupport {
                                   .content(toJson(dcrRegistration(List.of(redirectUri),
                                                                   List.of(AuthorizationGrantType.AUTHORIZATION_CODE.getValue())))))
        .andExpect(status().isUnauthorized())
-       .andExpect(jsonPath(ERROR_JSON_PATH).value(INVALID_TOKEN_ERROR));
+       .andExpect(jsonPath(ERROR_PATH).value(INVALID_TOKEN_ERROR));
   }
 
   @Test
@@ -328,7 +357,7 @@ class OAuthSecurityIntegrationTest extends OAuthServiceIntegrationTestSupport {
                                                                   List.of(REDIRECT_URI, "https://other-client.com/callback"),
                                                                   List.of(AuthorizationGrantType.AUTHORIZATION_CODE.getValue())))))
        .andExpect(status().isUnauthorized())
-       .andExpect(jsonPath(ERROR_JSON_PATH).value(INVALID_TOKEN_ERROR));
+       .andExpect(jsonPath(ERROR_PATH).value(INVALID_TOKEN_ERROR));
   }
 
   @Test
@@ -357,7 +386,7 @@ class OAuthSecurityIntegrationTest extends OAuthServiceIntegrationTestSupport {
   @Test
   @DisplayName("Token endpoint rejects invalid client credentials")
   void tokenEndpointRejectsInvalidClientCredentials() throws Exception {
-    RegisteredClient client = confidentialClient("bad-secret-client-" + UUID.randomUUID(), CLIENT_SECRET_VALUE);
+    RegisteredClient client = confidentialOpaqueClient("bad-secret-client-" + UUID.randomUUID(), CLIENT_SECRET_VALUE);
     registeredClientRepository.save(client);
 
     mvc.perform(post(TOKEN_ENDPOINT)
@@ -366,23 +395,23 @@ class OAuthSecurityIntegrationTest extends OAuthServiceIntegrationTestSupport {
                                     .param(GRANT_TYPE_PARAM, AuthorizationGrantType.CLIENT_CREDENTIALS.getValue())
                                     .param(SCOPE_PARAM, OidcScopes.OPENID))
        .andExpect(status().isUnauthorized())
-       .andExpect(jsonPath(ERROR_JSON_PATH).value("invalid_client"));
+       .andExpect(jsonPath(ERROR_PATH).value("invalid_client"));
   }
 
   @Test
   @DisplayName("Token endpoint rejects unsupported grant type")
   void tokenEndpointRejectsUnsupportedGrantType() throws Exception {
-    RegisteredClient client = confidentialClient("unsupported-grant-client-" + UUID.randomUUID(), CLIENT_SECRET_VALUE);
+    RegisteredClient client = confidentialOpaqueClient("unsupported-grant-client-" + UUID.randomUUID(), CLIENT_SECRET_VALUE);
     registeredClientRepository.save(client);
 
     mvc.perform(post(TOKEN_ENDPOINT)
                                     .contentType(APPLICATION_FORM_URLENCODED_VALUE)
                                     .header(AUTHORIZATION, basic(client.getClientId(), CLIENT_SECRET_VALUE))
                                     .param(GRANT_TYPE_PARAM, "password")
-                                    .param("username", "root")
+                                    .param("username", USERNAME)
                                     .param("password", CLIENT_SECRET_VALUE))
        .andExpect(status().isBadRequest())
-       .andExpect(jsonPath(ERROR_JSON_PATH).exists());
+       .andExpect(jsonPath(ERROR_PATH).exists());
   }
 
   @Test
@@ -411,54 +440,194 @@ class OAuthSecurityIntegrationTest extends OAuthServiceIntegrationTestSupport {
   @Test
   @DisplayName("Client credentials access token is opaque")
   void clientCredentialsAccessTokenIsOpaque() throws Exception {
-    RegisteredClient client = confidentialClient("opaque-client-" + UUID.randomUUID(), CLIENT_SECRET_VALUE);
+    RegisteredClient client = confidentialOpaqueClient("opaque-client-" + UUID.randomUUID(), CLIENT_SECRET_VALUE);
     registeredClientRepository.save(client);
 
-    MvcResult result = mvc.perform(post(TOKEN_ENDPOINT)
-                                                       .contentType(APPLICATION_FORM_URLENCODED_VALUE)
+    MvcResult result = mvc.perform(post(TOKEN_ENDPOINT).contentType(APPLICATION_FORM_URLENCODED_VALUE)
                                                        .header(AUTHORIZATION, basic(client.getClientId(), CLIENT_SECRET_VALUE))
                                                        .param(GRANT_TYPE_PARAM,
                                                               AuthorizationGrantType.CLIENT_CREDENTIALS.getValue())
                                                        .param(SCOPE_PARAM, OidcScopes.OPENID))
                           .andExpect(status().isOk())
-                          .andExpect(jsonPath("$.access_token").exists())
+                          .andExpect(jsonPath(ACCESS_TOKEN_PATH).exists())
                           .andExpect(jsonPath(TOKEN_TYPE_PATH).value(BEARER_VALUE))
                           .andReturn();
 
     String accessToken = objectMapper.readTree(result.getResponse().getContentAsString())
                                      .path("access_token")
                                      .asText();
+
     assertThat(accessToken).isNotBlank();
-    // not JWT compact form
-    assertThat(accessToken.split("\\.")).hasSize(3);
+    assertThat(accessToken.split("\\.")).hasSizeLessThan(3);
   }
 
   @Test
   @DisplayName("Introspection returns active true for valid opaque access token")
   void introspectionReturnsActiveTrueForValidOpaqueAccessToken() throws Exception {
-    RegisteredClient client = confidentialClient("introspect-client-" + UUID.randomUUID(), CLIENT_SECRET_VALUE);
+    RegisteredClient client = confidentialOpaqueClient("introspect-client-" + UUID.randomUUID(), CLIENT_SECRET_VALUE);
     registeredClientRepository.save(client);
 
     String token = issueClientCredentialsToken(client);
     mvc.perform(post(INTROSPECTION_ENDPOINT).contentType(APPLICATION_FORM_URLENCODED_VALUE)
                                             .header(AUTHORIZATION, basic(client.getClientId(), CLIENT_SECRET_VALUE))
-                                            .param("token", token))
+                                            .param(TOKEN_PARAM, token))
        .andExpect(status().isOk())
-       .andExpect(jsonPath("$.active").value(true))
-       .andExpect(jsonPath("$.client_id").value(client.getClientId()))
+       .andExpect(jsonPath(ACTIVE_PATH).value(true))
+       .andExpect(jsonPath(CLIENT_ID_PATH).value(client.getClientId()))
        .andExpect(jsonPath(TOKEN_TYPE_PATH).value(BEARER_VALUE));
+  }
+
+  @Test
+  @DisplayName("Introspection endpoint is exposed")
+  void introspectionEndpointIsExposed() throws Exception {
+    mvc.perform(post(INTROSPECTION_ENDPOINT).contentType(APPLICATION_FORM_URLENCODED_VALUE)
+                                            .param(TOKEN_PARAM, "dummy"))
+       .andExpect(status().is3xxRedirection())
+       .andExpect(header().string(HttpHeaders.LOCATION, containsString("/portal/login")));
   }
 
   @Test
   @DisplayName("Introspection returns active false for unknown token")
   void introspectionReturnsActiveFalseForUnknownToken() throws Exception {
-    RegisteredClient client = confidentialClient("introspect-invalid-client-" + UUID.randomUUID(), CLIENT_SECRET_VALUE);
+    RegisteredClient client = confidentialOpaqueClient("introspect-invalid-client-" + UUID.randomUUID(), CLIENT_SECRET_VALUE);
     registeredClientRepository.save(client);
     mvc.perform(post(INTROSPECTION_ENDPOINT).contentType(APPLICATION_FORM_URLENCODED_VALUE)
                                             .header(AUTHORIZATION, basic(client.getClientId(), CLIENT_SECRET_VALUE))
-                                            .param("token", "unknown-" + UUID.randomUUID()))
+                                            .param(TOKEN_PARAM, "unknown-" + UUID.randomUUID()))
        .andExpect(status().isOk())
-       .andExpect(jsonPath("$.active").value(false));
+       .andExpect(jsonPath(ACTIVE_PATH).value(false));
+  }
+
+  @Test
+  @DisplayName("Introspection rejects invalid client authentication")
+  void introspectionRejectsInvalidClientAuth() throws Exception {
+    mvc.perform(post(INTROSPECTION_ENDPOINT).contentType(APPLICATION_FORM_URLENCODED_VALUE)
+                                            .header(AUTHORIZATION, basic("bad", "bad"))
+                                            .param(TOKEN_PARAM, "whatever"))
+       .andExpect(status().isUnauthorized());
+  }
+
+  @Test
+  @DisplayName("Introspection returns token as active")
+  void introspectionReturnsActiveTrue() throws Exception {
+    RegisteredClient client = confidentialOpaqueClient("introspect-" + UUID.randomUUID(), CLIENT_SECRET_VALUE);
+    registeredClientRepository.save(client);
+
+    String token = issueClientCredentialsToken(client);
+
+    mvc.perform(post(INTROSPECTION_ENDPOINT).contentType(APPLICATION_FORM_URLENCODED_VALUE)
+                                            .header(AUTHORIZATION, basic(client.getClientId(), CLIENT_SECRET_VALUE))
+                                            .param(TOKEN_PARAM, token))
+       .andExpect(status().isOk())
+       .andExpect(jsonPath(ACTIVE_PATH).value(true));
+  }
+
+  @Test
+  @DisplayName("Public client completes authorization code flow with PKCE")
+  void publicClientCompletesAuthorizationCodeFlowWithPkce() throws Exception {
+    String redirectUri = CLIENT_ORIGIN + "/callback/pkce-" + UUID.randomUUID();
+
+    RegisteredClient client = publicClient("pkce-client-" + UUID.randomUUID(), redirectUri);
+    oAuthClientService.createClient(client);
+
+    String codeChallenge = s256(CODE_VERIFIER);
+    String state = getRandomState();
+
+    grantConsent(client, USERNAME, OidcScopes.OPENID);
+
+    MvcResult authorizeResult = mvc.perform(get(AUTHORIZE_ENDPOINT).with(user(USERNAME).roles(USERS_ROLE))
+                                                                   .queryParam(RESPONSE_TYPE_PARAM, "code")
+                                                                   .queryParam(CLIENT_ID_PARAM, client.getClientId())
+                                                                   .queryParam(REDIRECT_URI_PARAM, redirectUri)
+                                                                   .queryParam(SCOPE_PARAM, OidcScopes.OPENID)
+                                                                   .queryParam(STATE_PARAM, state)
+                                                                   .queryParam(CODE_CHALLENGE_PARAM, codeChallenge)
+                                                                   .queryParam(CODE_CHALLENGE_METHOD_PARAM, "S256"))
+                                   .andExpect(status().is3xxRedirection())
+                                   .andExpect(header().string(HttpHeaders.LOCATION, containsString(redirectUri)))
+                                   .andReturn();
+
+    String location = authorizeResult.getResponse().getHeader(HttpHeaders.LOCATION);
+    Map<String, String> query = queryParams(location);
+
+    assertThat(query.get(STATE_PARAM)).isEqualTo(state);
+
+    assertThat(query).containsKey("code");
+    String code = query.get("code");
+    assertNotNull(code);
+
+    mvc.perform(post(TOKEN_ENDPOINT).contentType(APPLICATION_FORM_URLENCODED_VALUE)
+                                    .param(GRANT_TYPE_PARAM, AuthorizationGrantType.AUTHORIZATION_CODE.getValue())
+                                    .param("code", code)
+                                    .param(REDIRECT_URI_PARAM, redirectUri)
+                                    .param(CLIENT_ID_PARAM, client.getClientId())
+                                    .param("code_verifier", CODE_VERIFIER))
+       .andExpect(status().isOk())
+       .andExpect(jsonPath(ACCESS_TOKEN_PATH).exists())
+       .andExpect(jsonPath(TOKEN_TYPE_PATH).value(BEARER_VALUE));
+  }
+
+  @Test
+  @DisplayName("Public client authorization code exchange rejects invalid PKCE verifier")
+  void publicClientAuthorizationCodeExchangeRejectsInvalidPkceVerifier() throws Exception {
+    String redirectUri = CLIENT_ORIGIN + "/callback/pkce-missing-" + UUID.randomUUID();
+
+    RegisteredClient client = publicClient("pkce-missing-client-" + UUID.randomUUID(), redirectUri);
+    oAuthClientService.createClient(client);
+
+    String codeChallenge = s256(CODE_VERIFIER);
+    String state = getRandomState();
+
+    MvcResult result = mvc.perform(get(AUTHORIZE_ENDPOINT).with(user(USERNAME).roles(USERS_ROLE))
+                                                          .queryParam(RESPONSE_TYPE_PARAM, "code")
+                                                          .queryParam(CLIENT_ID_PARAM, client.getClientId())
+                                                          .queryParam(REDIRECT_URI_PARAM, redirectUri)
+                                                          .queryParam(SCOPE_PARAM, OidcScopes.OPENID)
+                                                          .queryParam(STATE_PARAM, state)
+                                                          .queryParam(CODE_CHALLENGE_PARAM, codeChallenge)
+                                                          .queryParam(CODE_CHALLENGE_METHOD_PARAM, "S256"))
+                          .andExpect(status().is3xxRedirection())
+                          .andReturn();
+
+    String code = queryParams(result.getResponse().getHeader(HttpHeaders.LOCATION)).get("code");
+
+    mvc.perform(post(TOKEN_ENDPOINT).contentType(APPLICATION_FORM_URLENCODED_VALUE)
+                                    .param(GRANT_TYPE_PARAM, AuthorizationGrantType.AUTHORIZATION_CODE.getValue())
+                                    .param(REDIRECT_URI_PARAM, redirectUri)
+                                    .param(CLIENT_ID_PARAM, client.getClientId())
+                                    .param("code", code)
+                                    .param("code_verifier", "invalid-verifier"))
+       .andExpect(status().isBadRequest())
+       .andExpect(jsonPath(ERROR_PATH).exists());
+  }
+
+  private String s256(String verifier) throws Exception { // NOSONAR
+    byte[] digest = MessageDigest.getInstance("SHA-256")
+                                 .digest(verifier.getBytes(StandardCharsets.US_ASCII));
+    return Base64.getUrlEncoder().withoutPadding().encodeToString(digest);
+  }
+
+  private Map<String, String> queryParams(String location) {
+    String query = URI.create(location).getRawQuery();
+    return Arrays.stream(query.split("&"))
+                 .map(pair -> pair.split("=", 2))
+                 .collect(Collectors.toMap(pair -> urlDecode(pair[0]),
+                                           pair -> pair.length > 1 ? urlDecode(pair[1]) : ""));
+  }
+
+  private String urlDecode(String value) {
+    return URLDecoder.decode(value, StandardCharsets.UTF_8);
+  }
+
+  private void grantConsent(RegisteredClient client, String username, String... scopes) {
+    OAuth2AuthorizationConsent.Builder consent =
+                                               OAuth2AuthorizationConsent.withId(client.getId(), username);
+
+    for (String scope : scopes) {
+      consent.authority(new SimpleGrantedAuthority("SCOPE_" + scope));
+    }
+
+    authorizationConsentService.save(consent.build());
   }
 
   private void seedSecuritySettings() {
@@ -505,16 +674,17 @@ class OAuthSecurityIntegrationTest extends OAuthServiceIntegrationTestSupport {
                            .build();
   }
 
-  private RegisteredClient confidentialClient(String clientId, String secret) {
+  private RegisteredClient confidentialOpaqueClient(String clientId, String secret) {
     return RegisteredClient.withId(clientId)
                            .clientId(clientId)
                            .clientSecret(passwordEncoder.encode(secret))
-                           .clientName("Audience test client")
+                           .clientName("Opaque token test client")
                            .clientAuthenticationMethod(ClientAuthenticationMethod.CLIENT_SECRET_BASIC)
                            .authorizationGrantType(AuthorizationGrantType.CLIENT_CREDENTIALS)
                            .scope(OidcScopes.OPENID)
                            .clientSettings(ClientSettings.builder().build())
                            .tokenSettings(TokenSettings.builder()
+                                                       .accessTokenFormat(OAuth2TokenFormat.REFERENCE)
                                                        .accessTokenTimeToLive(Duration.ofMinutes(5))
                                                        .build())
                            .build();
@@ -569,6 +739,10 @@ class OAuthSecurityIntegrationTest extends OAuthServiceIntegrationTestSupport {
     return objectMapper.readTree(result.getResponse().getContentAsString())
                        .path("access_token")
                        .asText();
+  }
+
+  private String getRandomState() {
+    return "state-" + UUID.randomUUID();
   }
 
 }

@@ -18,10 +18,13 @@
  */
 package io.meeds.oauth2.server.storage;
 
+import static io.meeds.oauth2.server.util.EntityMapper.hashToken;
 import static io.meeds.oauth2.server.util.EntityMapper.toEntity;
 import static io.meeds.oauth2.server.util.OAuthEventType.TOKEN_CREATED;
 import static io.meeds.oauth2.server.util.OAuthEventType.TOKEN_DELETED;
 import static io.meeds.oauth2.server.util.OAuthEventType.TOKEN_UPDATED;
+
+import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.CacheEvict;
@@ -33,37 +36,47 @@ import org.springframework.security.oauth2.server.authorization.OAuth2TokenType;
 import org.springframework.stereotype.Component;
 
 import org.exoplatform.services.listener.ListenerService;
+import org.exoplatform.web.security.codec.CodecInitializer;
 
 import io.meeds.oauth2.server.dao.OAuthTokenDao;
 import io.meeds.oauth2.server.entity.OAuthTokenEntity;
 import io.meeds.oauth2.server.util.EntityMapper;
 
+import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 
 @Component
 @Slf4j
 public class OAuthTokenCachedStorage {
 
-  public static final String CACHE_NAME          = "oauth.tokens";
-
-  public static final String ACCESS_TOKEN_VALUE  = "access_token";
-
-  public static final String REFRESH_TOKEN_VALUE = "refresh_token";
+  public static final String CACHE_NAME = "oauth.tokens";
 
   @Autowired
   private OAuthTokenDao      dao;
 
   @Autowired
+  private CodecInitializer   codecInitializer;
+
+  @Autowired
   private ListenerService    listenerService;
 
+  private String             hmacKey;
+
   @CacheEvict(cacheNames = CACHE_NAME, allEntries = true)
-  public void save(OAuth2Authorization authorization) {
-    OAuth2Authorization existingOAuth2Authorization = findById(authorization.getId());
-    OAuthTokenEntity savedEntity = dao.save(toEntity(authorization));
-    if (existingOAuth2Authorization == null) {
-      listenerService.broadcast(TOKEN_CREATED, existingOAuth2Authorization, EntityMapper.toObject(savedEntity));
+  public void save(OAuth2Authorization authorization) { // NOSONAR
+    OAuthTokenEntity existingEntity = dao.findById(authorization.getId())
+                                         .orElse(null);
+    OAuthTokenEntity entityToSave = toEntity(authorization, getHmacKey());
+
+    OAuthTokenEntity savedEntity = dao.save(entityToSave);
+    if (existingEntity == null) {
+      listenerService.broadcast(TOKEN_CREATED,
+                                null,
+                                EntityMapper.toObject(savedEntity));
     } else {
-      listenerService.broadcast(TOKEN_UPDATED, existingOAuth2Authorization, EntityMapper.toObject(savedEntity));
+      listenerService.broadcast(TOKEN_UPDATED,
+                                EntityMapper.toObject(existingEntity),
+                                EntityMapper.toObject(savedEntity));
     }
   }
 
@@ -84,31 +97,32 @@ public class OAuthTokenCachedStorage {
   }
 
   @Cacheable(cacheNames = CACHE_NAME, key = "{#root.args[0], #root.args[1]}")
+  @SneakyThrows
   public OAuth2Authorization findByToken(String token, OAuth2TokenType tokenType) {
     if (token == null) {
       return null;
     } else {
+      // Encryption can be randomized, thus use deterministic Hash for lookup
+      // with a fixed secret HMAC key switch platform (Codec Initialize Key encrypted
+      // constant)
+      String tokenHash = hashToken(token, getHmacKey());
       if (tokenType == null) {
-        return dao.findByState(token)
-                  .or(() -> dao.findByAuthorizationCodeValue(token))
-                  .or(() -> dao.findByAccessTokenValue(token))
-                  .or(() -> dao.findByRefreshTokenValue(token))
-                  .or(() -> dao.findByOidcIdTokenValue(token))
-                  .or(() -> dao.findByUserCodeValue(token))
-                  .or(() -> dao.findByDeviceCodeValue(token))
+        return dao.findByTokenHash(tokenHash)
                   .map(EntityMapper::toObject)
                   .orElse(null);
       } else {
-        return switch (tokenType.getValue()) {
-        case OAuth2ParameterNames.CODE -> dao.findByAuthorizationCodeValue(token).map(EntityMapper::toObject).orElse(null);
-        case ACCESS_TOKEN_VALUE -> dao.findByAccessTokenValue(token).map(EntityMapper::toObject).orElse(null);
-        case REFRESH_TOKEN_VALUE -> dao.findByRefreshTokenValue(token).map(EntityMapper::toObject).orElse(null);
-        case OidcParameterNames.ID_TOKEN -> dao.findByOidcIdTokenValue(token).map(EntityMapper::toObject).orElse(null);
-        case OAuth2ParameterNames.STATE -> dao.findByState(token).map(EntityMapper::toObject).orElse(null);
-        case OAuth2ParameterNames.USER_CODE -> dao.findByUserCodeValue(token).map(EntityMapper::toObject).orElse(null);
-        case OAuth2ParameterNames.DEVICE_CODE -> dao.findByDeviceCodeValue(token).map(EntityMapper::toObject).orElse(null);
-        default -> null;
+        Optional<OAuthTokenEntity> entityOptional = switch (tokenType.getValue()) {
+        case OAuth2ParameterNames.STATE -> dao.findByStateHash(tokenHash);
+        case OAuth2ParameterNames.CODE -> dao.findByAuthorizationCodeHash(tokenHash);
+        case OAuth2ParameterNames.ACCESS_TOKEN -> dao.findByAccessTokenHash(tokenHash);
+        case OAuth2ParameterNames.REFRESH_TOKEN -> dao.findByRefreshTokenHash(tokenHash);
+        case OidcParameterNames.ID_TOKEN -> dao.findByOidcIdTokenHash(tokenHash);
+        case OAuth2ParameterNames.USER_CODE -> dao.findByUserCodeHash(tokenHash);
+        case OAuth2ParameterNames.DEVICE_CODE -> dao.findByDeviceCodeHash(tokenHash);
+        default -> Optional.empty();
         };
+        return entityOptional.map(EntityMapper::toObject)
+                             .orElse(null);
       }
     }
   }
@@ -118,4 +132,11 @@ public class OAuthTokenCachedStorage {
     log.debug("Evict all Cache Entries {}", CACHE_NAME);
   }
 
+  @SneakyThrows
+  public String getHmacKey() {
+    if (hmacKey == null) {
+      hmacKey = codecInitializer.getCodec().encode("platform-based-key-to-hash-v1");
+    }
+    return hmacKey;
+  }
 }

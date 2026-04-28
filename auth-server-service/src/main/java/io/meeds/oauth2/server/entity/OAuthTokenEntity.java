@@ -22,8 +22,9 @@ import java.time.Instant;
 import java.util.Map;
 import java.util.Set;
 
-import io.meeds.oauth2.server.util.JsonMapConverter;
+import io.meeds.oauth2.server.util.JsonEncryptedMapConverter;
 import io.meeds.oauth2.server.util.JsonSetConverter;
+import io.meeds.oauth2.server.util.StringEncryptedConverter;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Convert;
@@ -59,14 +60,26 @@ public class OAuthTokenEntity {
   private Set<String>         authorizedScopes;
 
   @Column(name = "ATTRIBUTES")
-  @Convert(converter = JsonMapConverter.class)
+  @Convert(converter = JsonEncryptedMapConverter.class)
   private Map<String, Object> attributes;
 
   @Column(name = "STATE")
+  @Convert(converter = StringEncryptedConverter.class)
   private String              state;
 
+  @Column(name = "STATE_HASH")
+  // INFO: Encryption Algorithm can be randomized, so it cannot be used for
+  // lookup. Thus this field is used for lookup only
+  private String              stateHash;
+
   @Column(name = "AUTHORIZATION_CODE_VALUE")
+  @Convert(converter = StringEncryptedConverter.class)
   private String              authorizationCodeValue;
+
+  @Column(name = "AUTHORIZATION_CODE_HASH")
+  // INFO: Encryption Algorithm can be randomized, so it cannot be used for
+  // lookup. Thus this field is used for lookup only
+  private String              authorizationCodeHash;
 
   @Column(name = "AUTHORIZATION_CODE_ISSUED_AT")
   private Instant             authorizationCodeIssuedAt;
@@ -75,11 +88,18 @@ public class OAuthTokenEntity {
   private Instant             authorizationCodeExpiresAt;
 
   @Column(name = "AUTHORIZATION_CODE_METADATA")
-  @Convert(converter = JsonMapConverter.class)
+  // INFO: Encrypted Value in DB
+  @Convert(converter = JsonEncryptedMapConverter.class)
   private Map<String, Object> authorizationCodeMetadata;
 
   @Column(name = "ACCESS_TOKEN_VALUE")
+  @Convert(converter = StringEncryptedConverter.class)
   private String              accessTokenValue;
+
+  @Column(name = "ACCESS_TOKEN_HASH")
+  // INFO: Encryption Algorithm can be randomized, so it cannot be used for
+  // lookup. Thus this field is used for lookup only
+  private String              accessTokenHash;
 
   @Column(name = "ACCESS_TOKEN_ISSUED_AT")
   private Instant             accessTokenIssuedAt;
@@ -95,15 +115,23 @@ public class OAuthTokenEntity {
   private Set<String>         accessTokenScopes;
 
   @Column(name = "ACCESS_TOKEN_METADATA")
-  @Convert(converter = JsonMapConverter.class)
+  // INFO: Encrypted Value in DB
+  @Convert(converter = JsonEncryptedMapConverter.class)
   private Map<String, Object> accessTokenMetadata;
 
   @Column(name = "ACCESS_TOKEN_CLAIMS")
-  @Convert(converter = JsonMapConverter.class)
+  // INFO: Encrypted Value in DB
+  @Convert(converter = JsonEncryptedMapConverter.class)
   private Map<String, Object> accessTokenClaims;
 
   @Column(name = "REFRESH_TOKEN_VALUE")
+  @Convert(converter = StringEncryptedConverter.class)
   private String              refreshTokenValue;
+
+  @Column(name = "REFRESH_TOKEN_HASH")
+  // INFO: Encryption Algorithm can be randomized, so it cannot be used for
+  // lookup. Thus this field is used for lookup only
+  private String              refreshTokenHash;
 
   @Column(name = "REFRESH_TOKEN_ISSUED_AT")
   private Instant             refreshTokenIssuedAt;
@@ -112,11 +140,18 @@ public class OAuthTokenEntity {
   private Instant             refreshTokenExpiresAt;
 
   @Column(name = "REFRESH_TOKEN_METADATA")
-  @Convert(converter = JsonMapConverter.class)
+  // INFO: Encrypted Value in DB
+  @Convert(converter = JsonEncryptedMapConverter.class)
   private Map<String, Object> refreshTokenMetadata;
 
   @Column(name = "OIDC_ID_TOKEN_VALUE")
+  @Convert(converter = StringEncryptedConverter.class)
   private String              oidcIdTokenValue;
+
+  @Column(name = "OIDC_ID_TOKEN_HASH")
+  // INFO: Encryption Algorithm can be randomized, so it cannot be used for
+  // lookup. Thus this field is used for lookup only
+  private String              oidcIdTokenHash;
 
   @Column(name = "OIDC_ID_TOKEN_ISSUED_AT")
   private Instant             oidcIdTokenIssuedAt;
@@ -125,15 +160,23 @@ public class OAuthTokenEntity {
   private Instant             oidcIdTokenExpiresAt;
 
   @Column(name = "OIDC_ID_TOKEN_METADATA")
-  @Convert(converter = JsonMapConverter.class)
+  // INFO: Encrypted Value in DB
+  @Convert(converter = JsonEncryptedMapConverter.class)
   private Map<String, Object> oidcIdTokenMetadata;
 
   @Column(name = "OIDC_ID_TOKEN_CLAIMS")
-  @Convert(converter = JsonMapConverter.class)
+  // INFO: Encrypted Value in DB
+  @Convert(converter = JsonEncryptedMapConverter.class)
   private Map<String, Object> oidcIdTokenClaims;
 
   @Column(name = "USER_CODE_VALUE")
+  @Convert(converter = StringEncryptedConverter.class)
   private String              userCodeValue;
+
+  @Column(name = "USER_CODE_HASH")
+  // INFO: Encryption Algorithm can be randomized, so it cannot be used for
+  // lookup. Thus this field is used for lookup only
+  private String              userCodeHash;
 
   @Column(name = "USER_CODE_ISSUED_AT")
   private Instant             userCodeIssuedAt;
@@ -142,11 +185,18 @@ public class OAuthTokenEntity {
   private Instant             userCodeExpiresAt;
 
   @Column(name = "USER_CODE_METADATA")
-  @Convert(converter = JsonMapConverter.class)
+  // INFO: Encrypted Value in DB
+  @Convert(converter = JsonEncryptedMapConverter.class)
   private Map<String, Object> userCodeMetadata;
 
   @Column(name = "DEVICE_CODE_VALUE")
+  @Convert(converter = StringEncryptedConverter.class)
   private String              deviceCodeValue;
+
+  @Column(name = "DEVICE_CODE_HASH")
+  // INFO: Encryption Algorithm can be randomized, so it cannot be used for
+  // lookup. Thus this field is used for lookup only
+  private String              deviceCodeHash;
 
   @Column(name = "DEVICE_CODE_ISSUED_AT")
   private Instant             deviceCodeIssuedAt;
@@ -155,7 +205,8 @@ public class OAuthTokenEntity {
   private Instant             deviceCodeExpiresAt;
 
   @Column(name = "DEVICE_CODE_METADATA")
-  @Convert(converter = JsonMapConverter.class)
+  // INFO: Encrypted Value in DB
+  @Convert(converter = JsonEncryptedMapConverter.class)
   private Map<String, Object> deviceCodeMetadata;
 
 }
