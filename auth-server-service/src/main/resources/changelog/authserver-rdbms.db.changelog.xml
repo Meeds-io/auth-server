@@ -203,4 +203,54 @@
     <dropColumn tableName="AUTH_SERVER_AUTHORIZATION_CONSENT" columnName="LAST_USED_DATE" />
   </changeSet>
 
+  <changeSet author="authserver" id="1.0.0-10-aiMIP-159">
+    <addColumn tableName="AUTH_SERVER_AUTHORIZATION">
+      <column name="STATE_HASH" type="VARCHAR(64)"></column>
+      <column name="AUTHORIZATION_CODE_HASH" type="VARCHAR(64)"></column>
+      <column name="ACCESS_TOKEN_HASH" type="VARCHAR(64)"></column>
+      <column name="REFRESH_TOKEN_HASH" type="VARCHAR(64)"></column>
+      <column name="OIDC_ID_TOKEN_HASH" type="VARCHAR(64)"></column>
+      <column name="USER_CODE_HASH" type="VARCHAR(64)"></column>
+      <column name="DEVICE_CODE_HASH" type="VARCHAR(64)"></column>
+    </addColumn>
+  </changeSet>
+
+  <changeSet author="authserver" id="1.0.0-11-aiMIP-159">
+    <createIndex
+      indexName="IDX_AUTH_SERVER_AUTHORIZATION_STATE_HASH"
+      tableName="AUTH_SERVER_AUTHORIZATION">
+      <column name="STATE_HASH"/>
+    </createIndex>
+    <createIndex
+      indexName="IDX_AUTH_SERVER_AUTHORIZATION_AUTHORIZATION_CODE_HASH"
+      tableName="AUTH_SERVER_AUTHORIZATION">
+      <column name="AUTHORIZATION_CODE_HASH"/>
+    </createIndex>
+    <createIndex
+      indexName="IDX_AUTH_SERVER_AUTHORIZATION_ACCESS_TOKEN_HASH"
+      tableName="AUTH_SERVER_AUTHORIZATION">
+      <column name="ACCESS_TOKEN_HASH"/>
+    </createIndex>
+    <createIndex
+      indexName="IDX_AUTH_SERVER_AUTHORIZATION_REFRESH_TOKEN_HASH"
+      tableName="AUTH_SERVER_AUTHORIZATION">
+      <column name="REFRESH_TOKEN_HASH"/>
+    </createIndex>
+    <createIndex
+      indexName="IDX_AUTH_SERVER_AUTHORIZATION_OIDC_ID_TOKEN_HASH"
+      tableName="AUTH_SERVER_AUTHORIZATION">
+      <column name="OIDC_ID_TOKEN_HASH"/>
+    </createIndex>
+    <createIndex
+      indexName="IDX_AUTH_SERVER_AUTHORIZATION_USER_CODE_HASH"
+      tableName="AUTH_SERVER_AUTHORIZATION">
+      <column name="USER_CODE_HASH"/>
+    </createIndex>
+    <createIndex
+      indexName="IDX_AUTH_SERVER_AUTHORIZATION_DEVICE_CODE_HASH"
+      tableName="AUTH_SERVER_AUTHORIZATION">
+      <column name="DEVICE_CODE_HASH"/>
+    </createIndex>
+  </changeSet>
+
 </databaseChangeLog>
