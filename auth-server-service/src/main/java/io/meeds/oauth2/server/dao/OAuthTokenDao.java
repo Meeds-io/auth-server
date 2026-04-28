@@ -30,19 +30,33 @@ import io.meeds.oauth2.server.entity.OAuthTokenEntity;
 
 public interface OAuthTokenDao extends JpaRepository<OAuthTokenEntity, String> {
 
-  Optional<OAuthTokenEntity> findByState(String state);
+  Optional<OAuthTokenEntity> findByStateHash(String state);
 
-  Optional<OAuthTokenEntity> findByAuthorizationCodeValue(String token);
+  Optional<OAuthTokenEntity> findByAuthorizationCodeHash(String token);
 
-  Optional<OAuthTokenEntity> findByAccessTokenValue(String token);
+  Optional<OAuthTokenEntity> findByAccessTokenHash(String token);
 
-  Optional<OAuthTokenEntity> findByRefreshTokenValue(String token);
+  Optional<OAuthTokenEntity> findByRefreshTokenHash(String token);
 
-  Optional<OAuthTokenEntity> findByOidcIdTokenValue(String token);
+  Optional<OAuthTokenEntity> findByOidcIdTokenHash(String token);
 
-  Optional<OAuthTokenEntity> findByUserCodeValue(String token);
+  Optional<OAuthTokenEntity> findByUserCodeHash(String token);
 
-  Optional<OAuthTokenEntity> findByDeviceCodeValue(String token);
+  Optional<OAuthTokenEntity> findByDeviceCodeHash(String token);
+
+  @Query("""
+      SELECT t from OAuthToken t
+      WHERE t.stateHash = :hash
+      OR t.authorizationCodeHash = :hash
+      OR t.accessTokenHash = :hash
+      OR t.refreshTokenHash = :hash
+      OR t.oidcIdTokenHash = :hash
+      OR t.userCodeHash = :hash
+      OR t.deviceCodeHash = :hash
+      """)
+  Optional<OAuthTokenEntity> findByTokenHash(
+                                             @Param("hash")
+                                             String hash);
 
   List<OAuthTokenEntity> findByAccessTokenValueNotNullAndPrincipalNameAndRegisteredClientId(String userName, String clientId);
 

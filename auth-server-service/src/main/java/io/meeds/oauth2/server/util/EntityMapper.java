@@ -26,6 +26,8 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+import org.apache.commons.codec.digest.HmacAlgorithms;
+import org.apache.commons.codec.digest.HmacUtils;
 import org.apache.commons.collections4.MapUtils;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -49,6 +51,8 @@ import io.meeds.oauth2.server.entity.OAuthTokenEntity;
 import io.meeds.oauth2.server.model.OAuthAccessToken;
 import io.meeds.oauth2.server.model.OAuthConsent;
 import io.meeds.oauth2.server.model.OauthClientType;
+
+import lombok.SneakyThrows;
 
 public class EntityMapper {
 
@@ -165,6 +169,7 @@ public class EntityMapper {
     entity.setRedirectUris(registeredClient.getRedirectUris());
   }
 
+  @SneakyThrows
   public static OAuth2Authorization toObject(OAuthTokenEntity entity) {
     RegisteredClient registeredClient = RegisteredClient.withId(entity.getRegisteredClientId())
                                                         .clientId(entity.getRegisteredClientId())
@@ -206,8 +211,7 @@ public class EntityMapper {
     }
 
     if (entity.getRefreshTokenValue() != null) {
-      OAuth2RefreshToken refreshToken = new OAuth2RefreshToken(
-                                                               entity.getRefreshTokenValue(),
+      OAuth2RefreshToken refreshToken = new OAuth2RefreshToken(entity.getRefreshTokenValue(),
                                                                entity.getRefreshTokenIssuedAt(),
                                                                entity.getRefreshTokenExpiresAt());
       builder.token(refreshToken, metadataConsumer -> metadataConsumer.putAll(entity.getRefreshTokenMetadata()));
@@ -235,7 +239,8 @@ public class EntityMapper {
                                 entity.getAccessTokenExpiresAt());
   }
 
-  public static OAuthTokenEntity toEntity(OAuth2Authorization authorization) {
+  @SneakyThrows
+  public static OAuthTokenEntity toEntity(OAuth2Authorization authorization, String hmacKey) {
     OAuthTokenEntity entity = new OAuthTokenEntity();
     entity.setId(authorization.getId());
     entity.setRegisteredClientId(authorization.getRegisteredClientId());
@@ -243,12 +248,17 @@ public class EntityMapper {
     entity.setAuthorizationGrantType(authorization.getAuthorizationGrantType().getValue());
     entity.setAuthorizedScopes(authorization.getAuthorizedScopes());
     entity.setAttributes(authorization.getAttributes());
-    entity.setState(authorization.getAttribute(OAuth2ParameterNames.STATE));
 
-    OAuth2Authorization.Token<OAuth2AuthorizationCode> code =
-                                                            authorization.getToken(OAuth2AuthorizationCode.class);
+    String state = authorization.getAttribute(OAuth2ParameterNames.STATE);
+    if (state != null) {
+      entity.setState(state);
+      entity.setStateHash(hashToken(state, hmacKey));
+    }
+
+    OAuth2Authorization.Token<OAuth2AuthorizationCode> code = authorization.getToken(OAuth2AuthorizationCode.class);
     if (code != null) {
       entity.setAuthorizationCodeValue(code.getToken().getTokenValue());
+      entity.setAuthorizationCodeHash(hashToken(code.getToken().getTokenValue(), hmacKey));
       entity.setAuthorizationCodeIssuedAt(code.getToken().getIssuedAt());
       entity.setAuthorizationCodeExpiresAt(code.getToken().getExpiresAt());
       entity.setAuthorizationCodeMetadata(code.getMetadata());
@@ -257,6 +267,7 @@ public class EntityMapper {
     OAuth2Authorization.Token<OAuth2AccessToken> access = authorization.getAccessToken();
     if (access != null) {
       entity.setAccessTokenValue(access.getToken().getTokenValue());
+      entity.setAccessTokenHash(hashToken(access.getToken().getTokenValue(), hmacKey));
       entity.setAccessTokenIssuedAt(access.getToken().getIssuedAt());
       entity.setAccessTokenExpiresAt(access.getToken().getExpiresAt());
       entity.setAccessTokenType(access.getToken().getTokenType().getValue());
@@ -271,6 +282,7 @@ public class EntityMapper {
     OAuth2Authorization.Token<OAuth2RefreshToken> refresh = authorization.getRefreshToken();
     if (refresh != null) {
       entity.setRefreshTokenValue(refresh.getToken().getTokenValue());
+      entity.setRefreshTokenHash(hashToken(refresh.getToken().getTokenValue(), hmacKey));
       entity.setRefreshTokenIssuedAt(refresh.getToken().getIssuedAt());
       entity.setRefreshTokenExpiresAt(refresh.getToken().getExpiresAt());
       entity.setRefreshTokenMetadata(refresh.getMetadata());
@@ -279,11 +291,13 @@ public class EntityMapper {
     OAuth2Authorization.Token<OidcIdToken> idToken = authorization.getToken(OidcIdToken.class);
     if (idToken != null) {
       entity.setOidcIdTokenValue(idToken.getToken().getTokenValue());
+      entity.setOidcIdTokenHash(hashToken(idToken.getToken().getTokenValue(), hmacKey));
       entity.setOidcIdTokenIssuedAt(idToken.getToken().getIssuedAt());
       entity.setOidcIdTokenExpiresAt(idToken.getToken().getExpiresAt());
       entity.setOidcIdTokenMetadata(idToken.getMetadata());
       entity.setOidcIdTokenClaims(idToken.getClaims());
     }
+
     return entity;
   }
 
@@ -311,6 +325,18 @@ public class EntityMapper {
                                               .stream()
                                               .map(GrantedAuthority::getAuthority)
                                               .collect(Collectors.toSet()));
+  }
+
+  /**
+   * Encryption can be randomized, thus use deterministic Hash for lookup with a
+   * fixed secret HMAC key switch platform (CodecInitializer Key encrypted constant)
+   * 
+   * @param hmacKey Secret key for MAC
+   * @param token Token to hash
+   * @return Deterministically hashed value used for lookup
+   */
+  public static String hashToken(String token, String hmacKey) {
+    return new HmacUtils(HmacAlgorithms.HMAC_SHA_256, hmacKey).hmacHex(token);
   }
 
   private static Set<ClientAuthenticationMethod> toClientAuthenticationMethods(Set<String> values) {
