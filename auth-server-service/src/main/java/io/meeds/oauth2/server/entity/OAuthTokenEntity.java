@@ -22,9 +22,9 @@ import java.time.Instant;
 import java.util.Map;
 import java.util.Set;
 
+import io.meeds.commons.utils.StringEncryptedConverter;
 import io.meeds.oauth2.server.util.JsonEncryptedMapConverter;
 import io.meeds.oauth2.server.util.JsonSetConverter;
-import io.meeds.oauth2.server.util.StringEncryptedConverter;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Convert;
