@@ -72,6 +72,13 @@
 
       <dependency>
         <groupId>${project.groupId}</groupId>
+        <artifactId>auth-server-service</artifactId>
+        <version>${project.version}</version>
+        <type>test-jar</type>
+      </dependency>
+
+      <dependency>
+        <groupId>${project.groupId}</groupId>
         <artifactId>auth-server-webapp</artifactId>
         <version>${project.version}</version>
         <type>war</type>
