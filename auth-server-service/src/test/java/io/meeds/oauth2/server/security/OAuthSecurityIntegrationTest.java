@@ -80,11 +80,14 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 
 import io.meeds.oauth2.server.service.OAuthClientService;
 import io.meeds.oauth2.server.service.OAuthSettingService;
+import io.meeds.oauth2.server.service.OAuthTokenService;
 import io.meeds.oauth2.server.test.OAuthServiceIntegrationTestSupport;
 
 @AutoConfigureMockMvc
 @DisplayName("OAuth2 security integration suite")
 class OAuthSecurityIntegrationTest extends OAuthServiceIntegrationTestSupport {
+
+  private static final String               SCOPE_PATH                       = "$.scope";
 
   private static final String               USERNAME                         = "root";
 
@@ -157,6 +160,8 @@ class OAuthSecurityIntegrationTest extends OAuthServiceIntegrationTestSupport {
 
   private static final String               INVALID_TOKEN_ERROR              = "invalid_token";
 
+  private static final int                  DCR_LIMIT_REQUESTS               = 10;
+
   private final ObjectMapper                objectMapper                     = new ObjectMapper();
 
   @Autowired
@@ -167,6 +172,9 @@ class OAuthSecurityIntegrationTest extends OAuthServiceIntegrationTestSupport {
 
   @Autowired
   private RegisteredClientRepository        registeredClientRepository;
+
+  @Autowired
+  private OAuthTokenService                 oAuthTokenService;
 
   @Autowired
   private OAuth2AuthorizationConsentService authorizationConsentService;
@@ -319,12 +327,20 @@ class OAuthSecurityIntegrationTest extends OAuthServiceIntegrationTestSupport {
   @Test
   @DisplayName("DCR rate limiter rejects request after configured boundary")
   void dcrRateLimiterRejectsAfterConfiguredBoundary() throws Exception {
-    for (int i = 0; i < 12; i++) {
+    for (int i = 0; i < DCR_LIMIT_REQUESTS + 2; i++) {
+      int index = i;
       String redirectUri = CLIENT_ORIGIN + "/callback/rate-%s".formatted(UUID.randomUUID());
       mvc.perform(post(DCR_ENDPOINT).contentType(APPLICATION_JSON)
                                     .content(toJson(dcrRegistration(List.of(redirectUri),
                                                                     List.of(AuthorizationGrantType.AUTHORIZATION_CODE.getValue())))))
-         .andExpect(result -> assertThat(result.getResponse().getStatus()).isIn(201, 401));
+         .andExpect(result -> {
+           if (index < DCR_LIMIT_REQUESTS) {
+             assertThat(result.getResponse().getStatus()).isIn(201, 401);
+           } else {
+             assertThat(result.getResponse().getStatus()).isEqualTo(401);
+           }
+         })
+         .andReturn();
     }
 
     String redirectUri = CLIENT_ORIGIN + "/callback/rate-overflow-%s".formatted(UUID.randomUUID());
@@ -371,7 +387,7 @@ class OAuthSecurityIntegrationTest extends OAuthServiceIntegrationTestSupport {
                                   .contentType(APPLICATION_JSON)
                                   .content(toJson(request)))
        .andExpect(status().isCreated())
-       .andExpect(jsonPath("$.scope").value(containsString(OidcScopes.OPENID)));
+       .andExpect(jsonPath(SCOPE_PATH).value(containsString(OidcScopes.OPENID)));
   }
 
   @Test
@@ -458,7 +474,8 @@ class OAuthSecurityIntegrationTest extends OAuthServiceIntegrationTestSupport {
                                      .asText();
 
     assertThat(accessToken).isNotBlank();
-    assertThat(accessToken.split("\\.")).hasSizeLessThan(3);
+    String[] parts = accessToken.split("\\.");
+    assertThat(parts.length).isEqualTo(1);
   }
 
   @Test
@@ -474,7 +491,26 @@ class OAuthSecurityIntegrationTest extends OAuthServiceIntegrationTestSupport {
        .andExpect(status().isOk())
        .andExpect(jsonPath(ACTIVE_PATH).value(true))
        .andExpect(jsonPath(CLIENT_ID_PATH).value(client.getClientId()))
-       .andExpect(jsonPath(TOKEN_TYPE_PATH).value(BEARER_VALUE));
+       .andExpect(jsonPath(TOKEN_TYPE_PATH).value(BEARER_VALUE))
+       .andExpect(jsonPath(SCOPE_PATH).value(containsString(OidcScopes.OPENID)))
+       .andExpect(jsonPath("$.exp").exists())
+       .andExpect(jsonPath("$.iat").exists());
+  }
+
+  @Test
+  @DisplayName("Introspection returns active false for removed access token")
+  void introspectionInactiveAfterTokenRemoval() throws Exception {
+    RegisteredClient client = confidentialOpaqueClient("introspect-client-" + UUID.randomUUID(), CLIENT_SECRET_VALUE);
+    registeredClientRepository.save(client);
+
+    String token = issueClientCredentialsToken(client);
+    oAuthTokenService.deleteTokensByClient(client.getClientId());
+
+    mvc.perform(post(INTROSPECTION_ENDPOINT).contentType(APPLICATION_FORM_URLENCODED_VALUE)
+                                            .header(AUTHORIZATION, basic(client.getClientId(), CLIENT_SECRET_VALUE))
+                                            .param(TOKEN_PARAM, token))
+       .andExpect(status().isOk())
+       .andExpect(jsonPath(ACTIVE_PATH).value(false));
   }
 
   @Test
@@ -505,21 +541,6 @@ class OAuthSecurityIntegrationTest extends OAuthServiceIntegrationTestSupport {
                                             .header(AUTHORIZATION, basic("bad", "bad"))
                                             .param(TOKEN_PARAM, "whatever"))
        .andExpect(status().isUnauthorized());
-  }
-
-  @Test
-  @DisplayName("Introspection returns token as active")
-  void introspectionReturnsActiveTrue() throws Exception {
-    RegisteredClient client = confidentialOpaqueClient("introspect-" + UUID.randomUUID(), CLIENT_SECRET_VALUE);
-    registeredClientRepository.save(client);
-
-    String token = issueClientCredentialsToken(client);
-
-    mvc.perform(post(INTROSPECTION_ENDPOINT).contentType(APPLICATION_FORM_URLENCODED_VALUE)
-                                            .header(AUTHORIZATION, basic(client.getClientId(), CLIENT_SECRET_VALUE))
-                                            .param(TOKEN_PARAM, token))
-       .andExpect(status().isOk())
-       .andExpect(jsonPath(ACTIVE_PATH).value(true));
   }
 
   @Test
@@ -575,6 +596,8 @@ class OAuthSecurityIntegrationTest extends OAuthServiceIntegrationTestSupport {
     RegisteredClient client = publicClient("pkce-missing-client-" + UUID.randomUUID(), redirectUri);
     oAuthClientService.createClient(client);
 
+    grantConsent(client, USERNAME, OidcScopes.OPENID);
+
     String codeChallenge = s256(CODE_VERIFIER);
     String state = getRandomState();
 
@@ -599,6 +622,50 @@ class OAuthSecurityIntegrationTest extends OAuthServiceIntegrationTestSupport {
                                     .param("code_verifier", "invalid-verifier"))
        .andExpect(status().isBadRequest())
        .andExpect(jsonPath(ERROR_PATH).exists());
+  }
+
+  @Test
+  @DisplayName("Mistral DCR confidential registration returns deterministic reusable client secret")
+  void mistralDcrConfidentialRegistrationReturnsDeterministicReusableClientSecret() throws Exception {
+    String redirectUri = CLIENT_ORIGIN + "/callback/mistral-" + UUID.randomUUID();
+
+    Map<String, Object> request = dcrRegistration(List.of(redirectUri),
+                                                  List.of(AuthorizationGrantType.AUTHORIZATION_CODE.getValue(),
+                                                          AuthorizationGrantType.CLIENT_CREDENTIALS.getValue()));
+
+    request.put(TOKEN_ENDPOINT_AUTH_METHOD_PARAM, ClientAuthenticationMethod.CLIENT_SECRET_BASIC.getValue());
+
+    MvcResult firstResult = mvc.perform(post(DCR_ENDPOINT).contentType(APPLICATION_JSON)
+                                                          .content(toJson(request)))
+                               .andExpect(status().isCreated())
+                               .andExpect(jsonPath(CLIENT_ID_PATH).isNotEmpty())
+                               .andExpect(jsonPath("$.client_secret").isNotEmpty())
+                               .andExpect(jsonPath("$.token_endpoint_auth_method")
+                                                                                  .value(ClientAuthenticationMethod.CLIENT_SECRET_BASIC.getValue()))
+                               .andReturn();
+
+    JsonNode firstBody = objectMapper.readTree(firstResult.getResponse().getContentAsString());
+    String clientId = firstBody.path(CLIENT_ID_PARAM).asText();
+    String clientSecret = firstBody.path("client_secret").asText();
+
+    MvcResult secondResult = mvc.perform(post(DCR_ENDPOINT)
+                                                           .contentType(APPLICATION_JSON)
+                                                           .content(toJson(request)))
+                                .andExpect(status().isCreated())
+                                .andExpect(jsonPath(CLIENT_ID_PATH).value(clientId))
+                                .andExpect(jsonPath("$.client_secret").value(clientSecret))
+                                .andReturn();
+
+    JsonNode secondBody = objectMapper.readTree(secondResult.getResponse().getContentAsString());
+    assertThat(secondBody.path("client_secret").asText()).isEqualTo(clientSecret);
+
+    mvc.perform(post(TOKEN_ENDPOINT).contentType(APPLICATION_FORM_URLENCODED_VALUE)
+                                    .header(AUTHORIZATION, basic(clientId, clientSecret))
+                                    .param(GRANT_TYPE_PARAM, AuthorizationGrantType.CLIENT_CREDENTIALS.getValue())
+                                    .param(SCOPE_PARAM, OidcScopes.OPENID))
+       .andExpect(status().isOk())
+       .andExpect(jsonPath(ACCESS_TOKEN_PATH).exists())
+       .andExpect(jsonPath(TOKEN_TYPE_PATH).value(BEARER_VALUE));
   }
 
   private String s256(String verifier) throws Exception { // NOSONAR
@@ -696,7 +763,7 @@ class OAuthSecurityIntegrationTest extends OAuthServiceIntegrationTestSupport {
     request.put(REDIRECT_URIS_PARAM, redirectUris);
     request.put(GRANT_TYPES_PARAM, grantTypes);
     request.put(RESPONSE_TYPES_PARAM, List.of("code"));
-    request.put(SCOPE_PARAM, "openid profile");
+    request.put(SCOPE_PARAM, "openid offline_access");
     request.put(TOKEN_ENDPOINT_AUTH_METHOD_PARAM, "none");
     return request;
   }
@@ -727,8 +794,7 @@ class OAuthSecurityIntegrationTest extends OAuthServiceIntegrationTestSupport {
   }
 
   private String issueClientCredentialsToken(RegisteredClient client) throws Exception {
-    MvcResult result = mvc.perform(post(TOKEN_ENDPOINT)
-                                                       .contentType(APPLICATION_FORM_URLENCODED_VALUE)
+    MvcResult result = mvc.perform(post(TOKEN_ENDPOINT).contentType(APPLICATION_FORM_URLENCODED_VALUE)
                                                        .header(AUTHORIZATION, basic(client.getClientId(), CLIENT_SECRET_VALUE))
                                                        .param(GRANT_TYPE_PARAM,
                                                               AuthorizationGrantType.CLIENT_CREDENTIALS.getValue())
