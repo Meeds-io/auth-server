@@ -204,6 +204,8 @@
   </changeSet>
 
   <changeSet author="authserver" id="1.0.0-10-aiMIP-159">
+    <validCheckSum>9:1258406023e1957d14f94c7feb6e5d5b</validCheckSum>
+    <validCheckSum>9:813298a2092929032ffe88ce5d6ea767</validCheckSum>
     <addColumn tableName="AUTH_SERVER_AUTHORIZATION">
       <column name="STATE_HASH" type="VARCHAR(64)"></column>
       <column name="AUTHORIZATION_CODE_HASH" type="VARCHAR(64)"></column>
