@@ -38,8 +38,8 @@ class OAuthSettingServiceIntegrationTest extends OAuthServiceIntegrationTestSupp
   @Test
   void issuerScopesAndAudiencesAreLoadedFromRealConfiguration() {
     assertThat(settingService.getIssuerUrl()).isEqualTo("https://auth.example.test/auth-server");
-    assertThat(settingService.getScopes()).contains(OidcScopes.OPENID, Utils.OFFLINE_ACCESS_SCOPE);
-    assertThat(settingService.getAllowedAudiences()).isNotEmpty();
+    assertThat(settingService.getScopes()).contains(OidcScopes.OPENID, OidcScopes.PROFILE, Utils.OFFLINE_ACCESS_SCOPE);
+    assertThat(settingService.getAllowedAudiences()).contains("https://auth.example.test/test-app");
   }
 
   @Test

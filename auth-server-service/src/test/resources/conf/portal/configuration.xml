@@ -31,9 +31,11 @@
       <properties-param>
         <name>mcp-server-oauth2-properties</name>
         <description>MCP Server Oauth2 Properties</description>
-        <property name="meeds.oauth.app.scopes.mcp-server" value="mcp.tools.read,mcp.tools.write" />
-        <property name="meeds.oauth.app.audiences.mcp-server" value="https://auth.example.test/mcp-server/mcp" />
+        <property name="meeds.oauth.app.scopes.profile" value="profile" />
+        <property name="meeds.oauth.app.audiences.test" value="https://auth.example.test/test-app" />
       </properties-param>
     </init-params>
   </component>
+
+  <remove-configuration>org.exoplatform.services.rest.impl.provider.JAXBContextResolver</remove-configuration>
 </configuration>

@@ -92,11 +92,11 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class OAuthSecurityConfiguration {
 
-  private static final String CONSENT_URL          = "/portal/consent";
+  public static final String  CONSENT_URL          = "/portal/consent";
 
-  private static final String LOGIN_URL            = "/portal/login";
+  public static final String  LOGIN_URL            = "/portal/login";
 
-  private static final String REGISTER_URL         = "/oauth2/register";
+  public static final String  REGISTER_URL         = "/oauth2/register";
 
   private static final String PUBLIC_RESOURCES_URL = "/.well-known/**";
 

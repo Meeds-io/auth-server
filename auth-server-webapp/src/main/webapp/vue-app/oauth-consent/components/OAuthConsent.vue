@@ -55,8 +55,17 @@
           <span v-sanitized-html="label"></span>
         </div>
         <v-form
+          ref="approveForm"
           method="post"
           action="/auth-server/oauth2/authorize">
+          <input
+            :value="$root.clientId"
+            type="hidden"
+            name="client_id">
+          <input
+            :value="$root.state"
+            type="hidden"
+            name="state">
           <div class="d-flex flex-column">
             <div class="font-weight-bold mb-2">
               {{ $t('oAuthConsent.scope.allowList') }}
@@ -86,27 +95,32 @@
               {{ $t('oAuthConsent.scope.sessionLivetime.description') }}
             </div>
           </div>
-          <v-card-actions class="d-flex justify-center pa-0 mt-6">
-            <input
-              :value="$root.clientId"
-              type="hidden"
-              name="client_id">
-            <input
-              :value="$root.state"
-              type="hidden"
-              name="state">
-            <v-btn
-              class="btn-primary btn"
-              type="submit">
-              {{ $t('oAuthConsent.confirm') }}
-            </v-btn>
-            <v-btn
-              class="btn ms-4"
-              @click="cancel">
-              {{ $t('oAuthConsent.cancel') }}
-            </v-btn>
-          </v-card-actions>
         </v-form>
+        <v-form
+          ref="denyForm"
+          method="post"
+          action="/auth-server/oauth2/authorize">
+          <input
+            :value="$root.clientId"
+            type="hidden"
+            name="client_id">
+          <input
+            :value="$root.state"
+            type="hidden"
+            name="state">
+        </v-form>
+        <v-card-actions class="d-flex justify-center pa-0 mt-6">
+          <v-btn
+            class="btn-primary btn"
+            @click="approve">
+            {{ $t('oAuthConsent.confirm') }}
+          </v-btn>
+          <v-btn
+            class="btn ms-4"
+            @click="deny">
+            {{ $t('oAuthConsent.cancel') }}
+          </v-btn>
+        </v-card-actions>
       </v-card>
     </main>
   </v-app>
@@ -185,8 +199,11 @@ export default {
         this.loading = false;
       }
     },
-    cancel() {
-      window.close();
+    approve() {
+      this.$refs.approveForm.$el.requestSubmit();
+    },
+    deny() {
+      this.$refs.denyForm.$el.requestSubmit();
     },
   },
 };
