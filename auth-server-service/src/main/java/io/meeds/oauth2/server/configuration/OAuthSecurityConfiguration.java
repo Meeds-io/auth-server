@@ -74,6 +74,8 @@ import org.exoplatform.web.security.codec.CodecInitializer;
 import io.meeds.oauth2.server.configuration.model.OAuthDefaultSettings;
 import io.meeds.oauth2.server.plugin.OAuthAuthorizationRequestConverter;
 import io.meeds.oauth2.server.plugin.OAuthDcrHttpAuthenticationConverter;
+import io.meeds.oauth2.server.plugin.OAuthRefreshTokenPublicAuthenticationProvider;
+import io.meeds.oauth2.server.plugin.OAuthRefreshTokenPublicClientAuthenticationConverter;
 import io.meeds.oauth2.server.security.OAuthCimdAuthenticationProvider;
 import io.meeds.oauth2.server.security.OAuthDcrAuthenticationProvider;
 import io.meeds.oauth2.server.security.OAuthPortalAuthenticationProvider;
@@ -109,6 +111,8 @@ public class OAuthSecurityConfiguration {
                                                              OAuthCimdAuthenticationProvider cimdAuthenticationProvider,
                                                              OAuthDcrHttpAuthenticationConverter oAuthDcrHttpAuthenticationConverter,
                                                              OAuthAuthorizationRequestConverter oAuthAuthorizationRequestConverter,
+                                                             OAuthRefreshTokenPublicAuthenticationProvider oAuthRefreshTokenPublicAuthenticationProvider,
+                                                             OAuthRefreshTokenPublicClientAuthenticationConverter oAuthRefreshTokenPublicClientAuthenticationConverter,
                                                              SecurityContextRepository securityContextRepository,
                                                              @Qualifier("oauthAuthenticationProvider")
                                                              OAuthDcrAuthenticationProvider oauthAuthenticationProvider,
@@ -129,6 +133,10 @@ public class OAuthSecurityConfiguration {
                                                                                       oAuthAuthorizationRequestConverter))
                            .authorizationServerMetadataEndpoint(oauth -> oauth.authorizationServerMetadataCustomizer(c -> customizeMetadata(c,
                                                                                                                                             oAuthSettingService)))
+                           .clientAuthentication(oauth -> oauth.authenticationConverters(converters -> converters.add(0,
+                                                                                                                      oAuthRefreshTokenPublicClientAuthenticationConverter))
+                                                               .authenticationProviders(providers -> providers.add(0,
+                                                                                                                   oAuthRefreshTokenPublicAuthenticationProvider)))
                            .oidc(oidc -> oidc.clientRegistrationEndpoint(e -> customizeRegistrationEndpoint(e,
                                                                                                             oauthAuthenticationProvider,
                                                                                                             oAuthDcrHttpAuthenticationConverter))
