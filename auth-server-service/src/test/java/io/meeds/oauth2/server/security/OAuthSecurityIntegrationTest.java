@@ -18,8 +18,10 @@
  */
 package io.meeds.oauth2.server.security;
 
+import static io.meeds.oauth2.server.configuration.OAuthSecurityConfiguration.CONSENT_URL;
 import static io.meeds.oauth2.server.configuration.OAuthSecurityConfiguration.LOGIN_URL;
 import static io.meeds.oauth2.server.configuration.OAuthSecurityConfiguration.REGISTER_URL;
+import static io.meeds.oauth2.server.util.Utils.OFFLINE_ACCESS_SCOPE;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.hamcrest.Matchers.containsString;
@@ -91,8 +93,6 @@ import io.meeds.oauth2.server.test.OAuthServiceIntegrationTestSupport;
 @DisplayName("OAuth2 security integration suite")
 class OAuthSecurityIntegrationTest extends OAuthServiceIntegrationTestSupport {
 
-  private static final String               SCOPE_PATH                       = "$.scope";
-
   private static final String               USERNAME                         = "root";
 
   private static final String               USERS_ROLE                       = "users";
@@ -145,6 +145,13 @@ class OAuthSecurityIntegrationTest extends OAuthServiceIntegrationTestSupport {
 
   private static final String               TOKEN_PARAM                      = "token";
 
+  private static final String               CODE_VERIFIER_PARAM              = "code_verifier";
+
+  private static final String               OPENID_AND_OFFLINE_ACCESS_PARAM  = "%s %s".formatted(OidcScopes.OPENID,
+                                                                                                 OFFLINE_ACCESS_SCOPE);
+
+  private static final String               REFRESH_TOKEN_PATH               = "refresh_token";
+
   private static final String               ERROR_PATH                       = "$.error";
 
   private static final String               TOKEN_TYPE_PATH                  = "$.token_type";
@@ -153,8 +160,9 @@ class OAuthSecurityIntegrationTest extends OAuthServiceIntegrationTestSupport {
 
   private static final String               CLIENT_ID_PATH                   = "$.client_id";
 
-  private static final String               CODE_VERIFIER                    =
-                                                          "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ012345678901234567890123456789";
+  private static final String               SCOPE_PATH                       = "$.scope";
+
+  private static final String               CODE_VERIFIER                    = UUID.randomUUID().toString();
 
   private static final String               CLIENT_SECRET_VALUE              = "secret";
 
@@ -584,7 +592,7 @@ class OAuthSecurityIntegrationTest extends OAuthServiceIntegrationTestSupport {
                                     .param("code", code)
                                     .param(REDIRECT_URI_PARAM, redirectUri)
                                     .param(CLIENT_ID_PARAM, client.getClientId())
-                                    .param("code_verifier", CODE_VERIFIER))
+                                    .param(CODE_VERIFIER_PARAM, CODE_VERIFIER))
        .andExpect(status().isOk())
        .andExpect(jsonPath(ACCESS_TOKEN_PATH).exists())
        .andExpect(jsonPath(TOKEN_TYPE_PATH).value(BEARER_VALUE));
@@ -603,8 +611,7 @@ class OAuthSecurityIntegrationTest extends OAuthServiceIntegrationTestSupport {
 
     MockHttpSession session = new MockHttpSession();
 
-    MvcResult consentRedirectResult = mvc.perform(get(AUTHORIZE_ENDPOINT)
-                                                                         .session(session)
+    MvcResult consentRedirectResult = mvc.perform(get(AUTHORIZE_ENDPOINT).session(session)
                                                                          .with(user(USERNAME).roles(USERS_ROLE))
                                                                          .queryParam(RESPONSE_TYPE_PARAM, "code")
                                                                          .queryParam(CLIENT_ID_PARAM, client.getClientId())
@@ -615,7 +622,7 @@ class OAuthSecurityIntegrationTest extends OAuthServiceIntegrationTestSupport {
                                                                          .queryParam(CODE_CHALLENGE_PARAM, codeChallenge)
                                                                          .queryParam(CODE_CHALLENGE_METHOD_PARAM, "S256"))
                                          .andExpect(status().is3xxRedirection())
-                                         .andExpect(header().string(HttpHeaders.LOCATION, containsString("/portal/consent")))
+                                         .andExpect(header().string(HttpHeaders.LOCATION, containsString(CONSENT_URL)))
                                          .andReturn();
 
     String consentLocation = consentRedirectResult.getResponse().getHeader(HttpHeaders.LOCATION);
@@ -625,8 +632,7 @@ class OAuthSecurityIntegrationTest extends OAuthServiceIntegrationTestSupport {
     assertThat(consentState).isNotBlank();
     assertThat(consentState).isNotEqualTo(state);
 
-    MvcResult cancelResult = mvc.perform(post(AUTHORIZE_ENDPOINT)
-                                                                 .session(session)
+    MvcResult cancelResult = mvc.perform(post(AUTHORIZE_ENDPOINT).session(session)
                                                                  .with(user(USERNAME).roles(USERS_ROLE))
                                                                  .contentType(APPLICATION_FORM_URLENCODED_VALUE)
                                                                  .param(CLIENT_ID_PARAM, client.getClientId())
@@ -674,7 +680,7 @@ class OAuthSecurityIntegrationTest extends OAuthServiceIntegrationTestSupport {
                                     .param(REDIRECT_URI_PARAM, redirectUri)
                                     .param(CLIENT_ID_PARAM, client.getClientId())
                                     .param("code", code)
-                                    .param("code_verifier", "invalid-verifier"))
+                                    .param(CODE_VERIFIER_PARAM, "invalid-verifier"))
        .andExpect(status().isBadRequest())
        .andExpect(jsonPath(ERROR_PATH).exists());
   }
@@ -695,8 +701,7 @@ class OAuthSecurityIntegrationTest extends OAuthServiceIntegrationTestSupport {
                                .andExpect(status().isCreated())
                                .andExpect(jsonPath(CLIENT_ID_PATH).isNotEmpty())
                                .andExpect(jsonPath("$.client_secret").isNotEmpty())
-                               .andExpect(jsonPath("$.token_endpoint_auth_method")
-                                                                                  .value(ClientAuthenticationMethod.CLIENT_SECRET_BASIC.getValue()))
+                               .andExpect(jsonPath("$.token_endpoint_auth_method").value(ClientAuthenticationMethod.CLIENT_SECRET_BASIC.getValue()))
                                .andReturn();
 
     JsonNode firstBody = objectMapper.readTree(firstResult.getResponse().getContentAsString());
@@ -721,6 +726,217 @@ class OAuthSecurityIntegrationTest extends OAuthServiceIntegrationTestSupport {
        .andExpect(status().isOk())
        .andExpect(jsonPath(ACCESS_TOKEN_PATH).exists())
        .andExpect(jsonPath(TOKEN_TYPE_PATH).value(BEARER_VALUE));
+  }
+
+  @Test
+  @DisplayName("Public client can refresh access token with client_id and no client secret")
+  void publicClientCanRefreshAccessTokenWithoutClientSecret() throws Exception {
+    String redirectUri = CLIENT_ORIGIN + "/callback/refresh-" + UUID.randomUUID();
+
+    RegisteredClient client = RegisteredClient.withId("refresh-public-client-" + UUID.randomUUID())
+                                              .clientId("refresh-public-client-" + UUID.randomUUID())
+                                              .clientName("Refresh public client")
+                                              .clientAuthenticationMethod(ClientAuthenticationMethod.NONE)
+                                              .authorizationGrantType(AuthorizationGrantType.AUTHORIZATION_CODE)
+                                              .authorizationGrantType(AuthorizationGrantType.REFRESH_TOKEN)
+                                              .redirectUri(redirectUri)
+                                              .scope(OidcScopes.OPENID)
+                                              .scope(OFFLINE_ACCESS_SCOPE)
+                                              .clientSettings(ClientSettings.builder()
+                                                                            .requireProofKey(true)
+                                                                            .requireAuthorizationConsent(true)
+                                                                            .build())
+                                              .tokenSettings(TokenSettings.builder()
+                                                                          .accessTokenFormat(OAuth2TokenFormat.REFERENCE)
+                                                                          .accessTokenTimeToLive(Duration.ofMinutes(1))
+                                                                          .refreshTokenTimeToLive(Duration.ofHours(1))
+                                                                          .reuseRefreshTokens(false)
+                                                                          .build())
+                                              .build();
+
+    oAuthClientService.createClient(client);
+    grantConsent(client, USERNAME, OidcScopes.OPENID, OFFLINE_ACCESS_SCOPE);
+
+    String codeChallenge = s256(CODE_VERIFIER);
+    String state = getRandomState();
+    MockHttpSession session = new MockHttpSession();
+
+    MvcResult consentRedirectResult = mvc.perform(get(AUTHORIZE_ENDPOINT).session(session)
+                                                                         .with(user(USERNAME).roles(USERS_ROLE))
+                                                                         .queryParam(RESPONSE_TYPE_PARAM, "code")
+                                                                         .queryParam(CLIENT_ID_PARAM, client.getClientId())
+                                                                         .queryParam(REDIRECT_URI_PARAM, redirectUri)
+                                                                         .queryParam(SCOPE_PARAM, OPENID_AND_OFFLINE_ACCESS_PARAM)
+                                                                         .queryParam(STATE_PARAM, state)
+                                                                         .queryParam(CODE_CHALLENGE_PARAM, codeChallenge)
+                                                                         .queryParam(CODE_CHALLENGE_METHOD_PARAM, "S256"))
+                                         .andExpect(status().is3xxRedirection())
+                                         .andExpect(header().string(HttpHeaders.LOCATION, containsString(CONSENT_URL)))
+                                         .andReturn();
+
+    String consentLocation = consentRedirectResult.getResponse().getHeader(HttpHeaders.LOCATION);
+    String consentState = queryParams(consentLocation).get(STATE_PARAM);
+
+    MvcResult authorizeResult = mvc.perform(post(AUTHORIZE_ENDPOINT).session(session)
+                                                                    .with(user(USERNAME).roles(USERS_ROLE))
+                                                                    .contentType(APPLICATION_FORM_URLENCODED_VALUE)
+                                                                    .param(CLIENT_ID_PARAM, client.getClientId())
+                                                                    .param(STATE_PARAM, consentState)
+                                                                    .param(SCOPE_PARAM, OidcScopes.OPENID)
+                                                                    .param(SCOPE_PARAM, OFFLINE_ACCESS_SCOPE))
+                                   .andExpect(status().is3xxRedirection())
+                                   .andExpect(header().string(HttpHeaders.LOCATION, containsString(redirectUri)))
+                                   .andReturn();
+    String code = queryParams(authorizeResult.getResponse().getHeader(HttpHeaders.LOCATION)).get("code");
+    assertThat(code).isNotBlank();
+
+    MvcResult tokenResult = mvc.perform(post(TOKEN_ENDPOINT).contentType(APPLICATION_FORM_URLENCODED_VALUE)
+                                                            .param(GRANT_TYPE_PARAM,
+                                                                   AuthorizationGrantType.AUTHORIZATION_CODE.getValue())
+                                                            .param("code", code)
+                                                            .param(REDIRECT_URI_PARAM, redirectUri)
+                                                            .param(CLIENT_ID_PARAM, client.getClientId())
+                                                            .param(CODE_VERIFIER_PARAM, CODE_VERIFIER))
+                               .andExpect(status().isOk())
+                               .andExpect(jsonPath(ACCESS_TOKEN_PATH).exists())
+                               .andExpect(jsonPath("$.refresh_token").exists())
+                               .andReturn();
+
+    JsonNode tokenBody = objectMapper.readTree(tokenResult.getResponse().getContentAsString());
+    String refreshToken = tokenBody.path(REFRESH_TOKEN_PATH).asText();
+
+    mvc.perform(post(TOKEN_ENDPOINT).contentType(APPLICATION_FORM_URLENCODED_VALUE)
+                                    .param(GRANT_TYPE_PARAM, AuthorizationGrantType.REFRESH_TOKEN.getValue())
+                                    .param(CLIENT_ID_PARAM, client.getClientId())
+                                    .param(REFRESH_TOKEN_PATH, refreshToken)
+                                    .param(RESOURCE_PARAM, "http://localhost:8080/mcp-server/mcp"))
+       .andExpect(status().isOk())
+       .andExpect(jsonPath(ACCESS_TOKEN_PATH).exists())
+       .andExpect(jsonPath(TOKEN_TYPE_PATH).value(BEARER_VALUE));
+  }
+
+  @Test
+  @DisplayName("Confidential client can refresh access token with client secret")
+  void confidentialClientCanRefreshAccessTokenWithClientSecret() throws Exception {
+    String redirectUri = CLIENT_ORIGIN + "/callback/confidential-refresh-" + UUID.randomUUID();
+    String clientId = "confidential-refresh-client-" + UUID.randomUUID();
+
+    RegisteredClient client = RegisteredClient.withId(clientId)
+                                              .clientId(clientId)
+                                              .clientSecret(passwordEncoder.encode(CLIENT_SECRET_VALUE)) // NOSONAR
+                                              .clientName("Confidential refresh client")
+                                              .clientAuthenticationMethod(ClientAuthenticationMethod.CLIENT_SECRET_BASIC)
+                                              .authorizationGrantType(AuthorizationGrantType.AUTHORIZATION_CODE)
+                                              .authorizationGrantType(AuthorizationGrantType.REFRESH_TOKEN)
+                                              .redirectUri(redirectUri)
+                                              .scope(OidcScopes.OPENID)
+                                              .scope("offline_access")
+                                              .clientSettings(ClientSettings.builder()
+                                                                            .requireAuthorizationConsent(true)
+                                                                            .build())
+                                              .tokenSettings(TokenSettings.builder()
+                                                                          .accessTokenFormat(OAuth2TokenFormat.REFERENCE)
+                                                                          .accessTokenTimeToLive(Duration.ofMinutes(1))
+                                                                          .refreshTokenTimeToLive(Duration.ofHours(1))
+                                                                          .reuseRefreshTokens(false)
+                                                                          .build())
+                                              .build();
+    oAuthClientService.createClient(client);
+
+    String codeChallenge = s256(CODE_VERIFIER);
+    String state = getRandomState();
+
+    MockHttpSession session = new MockHttpSession();
+    MvcResult consentRedirectResult = mvc.perform(get(AUTHORIZE_ENDPOINT).session(session)
+                                                                         .with(user(USERNAME).roles(USERS_ROLE))
+                                                                         .queryParam(RESPONSE_TYPE_PARAM, "code")
+                                                                         .queryParam(CLIENT_ID_PARAM, client.getClientId())
+                                                                         .queryParam(REDIRECT_URI_PARAM, redirectUri)
+                                                                         .queryParam(SCOPE_PARAM, OPENID_AND_OFFLINE_ACCESS_PARAM)
+                                                                         .queryParam(STATE_PARAM, state)
+                                                                         .queryParam(CODE_CHALLENGE_PARAM, codeChallenge)
+                                                                         .queryParam(CODE_CHALLENGE_METHOD_PARAM, "S256"))
+                                         .andExpect(status().is3xxRedirection())
+                                         .andExpect(header().string(HttpHeaders.LOCATION, containsString(CONSENT_URL)))
+                                         .andReturn();
+
+    String consentState = queryParams(consentRedirectResult.getResponse()
+                                                           .getHeader(HttpHeaders.LOCATION)).get(STATE_PARAM);
+
+    MvcResult authorizeResult = mvc.perform(post(AUTHORIZE_ENDPOINT).session(session)
+                                                                    .with(user(USERNAME).roles(USERS_ROLE))
+                                                                    .contentType(APPLICATION_FORM_URLENCODED_VALUE)
+                                                                    .param(CLIENT_ID_PARAM, client.getClientId())
+                                                                    .param(STATE_PARAM, consentState)
+                                                                    .param(SCOPE_PARAM, OidcScopes.OPENID)
+                                                                    .param(SCOPE_PARAM, OFFLINE_ACCESS_SCOPE))
+                                   .andExpect(status().is3xxRedirection())
+                                   .andExpect(header().string(HttpHeaders.LOCATION, containsString(redirectUri)))
+                                   .andReturn();
+
+    String code = queryParams(authorizeResult.getResponse()
+                                             .getHeader(HttpHeaders.LOCATION)).get("code");
+    assertThat(code).isNotBlank();
+
+    MvcResult tokenResult = mvc.perform(post(TOKEN_ENDPOINT).contentType(APPLICATION_FORM_URLENCODED_VALUE)
+                                                            .header(AUTHORIZATION,
+                                                                    basic(client.getClientId(), CLIENT_SECRET_VALUE))
+                                                            .param(GRANT_TYPE_PARAM,
+                                                                   AuthorizationGrantType.AUTHORIZATION_CODE.getValue())
+                                                            .param("code", code)
+                                                            .param(REDIRECT_URI_PARAM, redirectUri)
+                                                            .param(CODE_VERIFIER_PARAM, CODE_VERIFIER))
+                               .andExpect(status().isOk())
+                               .andExpect(jsonPath(ACCESS_TOKEN_PATH).exists())
+                               .andExpect(jsonPath("$.refresh_token").exists())
+                               .andReturn();
+
+    String refreshToken = objectMapper.readTree(tokenResult.getResponse().getContentAsString())
+                                      .path(REFRESH_TOKEN_PATH)
+                                      .asText();
+
+    mvc.perform(post(TOKEN_ENDPOINT).contentType(APPLICATION_FORM_URLENCODED_VALUE)
+                                    .header(AUTHORIZATION, basic(client.getClientId(), CLIENT_SECRET_VALUE))
+                                    .param(GRANT_TYPE_PARAM, AuthorizationGrantType.REFRESH_TOKEN.getValue())
+                                    .param(REFRESH_TOKEN_PATH, refreshToken))
+       .andExpect(status().isOk())
+       .andExpect(jsonPath(ACCESS_TOKEN_PATH).exists())
+       .andExpect(jsonPath(TOKEN_TYPE_PATH).value(BEARER_VALUE));
+  }
+
+  @Test
+  @DisplayName("Confidential client cannot use refresh token grant without client secret")
+  void confidentialClientCannotRefreshWithoutClientSecret() throws Exception {
+    String redirectUri = CLIENT_ORIGIN + "/callback/confidential-refresh-no-secret-" + UUID.randomUUID();
+    String clientId = "confidential-refresh-no-secret-client-" + UUID.randomUUID();
+
+    RegisteredClient client = RegisteredClient.withId(clientId)
+                                              .clientId(clientId)
+                                              .clientSecret(passwordEncoder.encode(CLIENT_SECRET_VALUE)) // NOSONAR
+                                              .clientName("Confidential refresh no secret client")
+                                              .clientAuthenticationMethod(ClientAuthenticationMethod.CLIENT_SECRET_BASIC)
+                                              .authorizationGrantType(AuthorizationGrantType.AUTHORIZATION_CODE)
+                                              .authorizationGrantType(AuthorizationGrantType.REFRESH_TOKEN)
+                                              .redirectUri(redirectUri)
+                                              .scope(OidcScopes.OPENID)
+                                              .scope("offline_access")
+                                              .clientSettings(ClientSettings.builder()
+                                                                            .requireAuthorizationConsent(true)
+                                                                            .build())
+                                              .tokenSettings(TokenSettings.builder()
+                                                                          .accessTokenFormat(OAuth2TokenFormat.REFERENCE)
+                                                                          .accessTokenTimeToLive(Duration.ofMinutes(1))
+                                                                          .refreshTokenTimeToLive(Duration.ofHours(1))
+                                                                          .reuseRefreshTokens(false)
+                                                                          .build())
+                                              .build();
+    oAuthClientService.createClient(client);
+
+    mvc.perform(post(TOKEN_ENDPOINT).contentType(APPLICATION_FORM_URLENCODED_VALUE)
+                                    .param(GRANT_TYPE_PARAM, AuthorizationGrantType.REFRESH_TOKEN.getValue())
+                                    .param(CLIENT_ID_PARAM, client.getClientId())
+                                    .param(REFRESH_TOKEN_PATH, "dummy-refresh-token-" + UUID.randomUUID()))
+       .andExpect(status().is3xxRedirection());
   }
 
   private String s256(String verifier) throws Exception { // NOSONAR
@@ -818,7 +1034,7 @@ class OAuthSecurityIntegrationTest extends OAuthServiceIntegrationTestSupport {
     request.put(REDIRECT_URIS_PARAM, redirectUris);
     request.put(GRANT_TYPES_PARAM, grantTypes);
     request.put(RESPONSE_TYPES_PARAM, List.of("code"));
-    request.put(SCOPE_PARAM, "openid offline_access");
+    request.put(SCOPE_PARAM, OPENID_AND_OFFLINE_ACCESS_PARAM);
     request.put(TOKEN_ENDPOINT_AUTH_METHOD_PARAM, "none");
     return request;
   }
