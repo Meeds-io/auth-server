@@ -45,6 +45,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.security.oauth2.core.AuthorizationGrantType;
+import org.springframework.security.oauth2.core.ClientAuthenticationMethod;
 import org.springframework.security.oauth2.core.oidc.OidcScopes;
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClient;
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClient.Builder;
@@ -249,7 +250,12 @@ public class OAuthClientService {
     if (getClient(client.getClientId(), true) != null) {
       throw new ObjectAlreadyExistsException("A client with id '%s' already exists".formatted(client.getClientId()));
     }
-    RegisteredClient clientToCreate = normalizeClient(client.getClientId(), client, null, true);
+    boolean isPublicClient = client.getClientAuthenticationMethods().contains(ClientAuthenticationMethod.NONE);
+
+    boolean shouldApplyPublicDefaults = Objects.equals(client.getClientSettings().getSetting(CLIENT_IS_CIMD_SETTING), true)
+                                        || Objects.equals(client.getClientSettings().getSetting(CLIENT_IS_DCR_SETTING), true)
+                                        || isPublicClient;
+    RegisteredClient clientToCreate = normalizeClient(client.getClientId(), client, null, shouldApplyPublicDefaults);
     saveClient(clientToCreate);
     return getClient(client.getClientId(), true);
   }
