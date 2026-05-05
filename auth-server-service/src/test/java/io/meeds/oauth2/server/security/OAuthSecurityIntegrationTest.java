@@ -18,6 +18,8 @@
  */
 package io.meeds.oauth2.server.security;
 
+import static io.meeds.oauth2.server.configuration.OAuthSecurityConfiguration.LOGIN_URL;
+import static io.meeds.oauth2.server.configuration.OAuthSecurityConfiguration.REGISTER_URL;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.hamcrest.Matchers.containsString;
@@ -52,12 +54,14 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+import org.apache.commons.lang3.StringUtils;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.http.HttpHeaders;
+import org.springframework.mock.web.MockHttpSession;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.core.AuthorizationGrantType;
@@ -106,8 +110,6 @@ class OAuthSecurityIntegrationTest extends OAuthServiceIntegrationTestSupport {
   private static final String               INTROSPECTION_ENDPOINT           = "/oauth2/introspect";
 
   private static final String               JWKS_ENDPOINT                    = "/oauth2/jwks";
-
-  private static final String               DCR_ENDPOINT                     = "/oauth2/register";
 
   private static final String               CLIENT_ORIGIN                    = "https://client.com";
 
@@ -195,7 +197,7 @@ class OAuthSecurityIntegrationTest extends OAuthServiceIntegrationTestSupport {
   @Test
   @DisplayName("DCR accepts valid public client registration")
   void dcrAcceptsValidPublicClientRegistration() throws Exception {
-    MvcResult result = mvc.perform(post(DCR_ENDPOINT).contentType(APPLICATION_JSON)
+    MvcResult result = mvc.perform(post(REGISTER_URL).contentType(APPLICATION_JSON)
                                                      .content(toJson(dcrRegistration(List.of(REDIRECT_URI),
                                                                                      List.of(AuthorizationGrantType.AUTHORIZATION_CODE.getValue())))))
                           .andExpect(status().isCreated())
@@ -211,7 +213,7 @@ class OAuthSecurityIntegrationTest extends OAuthServiceIntegrationTestSupport {
   @DisplayName("DCR rejects invalid redirect URI")
   void dcrRejectsInvalidRedirectUri() throws Exception {
     String redirectUri = CLIENT_ORIGIN + ".evil.com/callback";
-    mvc.perform(post(DCR_ENDPOINT).contentType(APPLICATION_JSON)
+    mvc.perform(post(REGISTER_URL).contentType(APPLICATION_JSON)
                                   .content(toJson(dcrRegistration(List.of(redirectUri),
                                                                   List.of(AuthorizationGrantType.AUTHORIZATION_CODE.getValue())))))
        .andExpect(status().isUnauthorized())
@@ -225,7 +227,7 @@ class OAuthSecurityIntegrationTest extends OAuthServiceIntegrationTestSupport {
        .andExpect(status().isOk())
        .andExpect(header().string(CONTENT_TYPE, containsString(APPLICATION_JSON.toString())))
        .andExpect(jsonPath("$.issuer").value(issuerUrl()))
-       .andExpect(jsonPath("$.registration_endpoint").value(issuerUrl() + DCR_ENDPOINT))
+       .andExpect(jsonPath("$.registration_endpoint").value(issuerUrl() + REGISTER_URL))
        .andExpect(jsonPath("$.client_id_metadata_document_supported").value(true))
        .andExpect(jsonPath("$.authorization_endpoint").value(issuerUrl() + AUTHORIZE_ENDPOINT))
        .andExpect(jsonPath("$.token_endpoint").value(issuerUrl() + TOKEN_ENDPOINT))
@@ -330,7 +332,7 @@ class OAuthSecurityIntegrationTest extends OAuthServiceIntegrationTestSupport {
     for (int i = 0; i < DCR_LIMIT_REQUESTS + 2; i++) {
       int index = i;
       String redirectUri = CLIENT_ORIGIN + "/callback/rate-%s".formatted(UUID.randomUUID());
-      mvc.perform(post(DCR_ENDPOINT).contentType(APPLICATION_JSON)
+      mvc.perform(post(REGISTER_URL).contentType(APPLICATION_JSON)
                                     .content(toJson(dcrRegistration(List.of(redirectUri),
                                                                     List.of(AuthorizationGrantType.AUTHORIZATION_CODE.getValue())))))
          .andExpect(result -> {
@@ -344,7 +346,7 @@ class OAuthSecurityIntegrationTest extends OAuthServiceIntegrationTestSupport {
     }
 
     String redirectUri = CLIENT_ORIGIN + "/callback/rate-overflow-%s".formatted(UUID.randomUUID());
-    mvc.perform(post(DCR_ENDPOINT).contentType(APPLICATION_JSON)
+    mvc.perform(post(REGISTER_URL).contentType(APPLICATION_JSON)
                                   .content(toJson(dcrRegistration(List.of(redirectUri),
                                                                   List.of(AuthorizationGrantType.AUTHORIZATION_CODE.getValue())))))
        .andExpect(status().isUnauthorized())
@@ -356,7 +358,7 @@ class OAuthSecurityIntegrationTest extends OAuthServiceIntegrationTestSupport {
   void dcrNormalizesClientCredentialsRequestByAddingAuthorizationCode() throws Exception {
     String redirectUri = CLIENT_ORIGIN + "/callback/client-credentials-" + UUID.randomUUID();
 
-    mvc.perform(post(DCR_ENDPOINT).contentType(APPLICATION_JSON)
+    mvc.perform(post(REGISTER_URL).contentType(APPLICATION_JSON)
                                   .content(toJson(dcrRegistration(
                                                                   List.of(redirectUri),
                                                                   List.of(AuthorizationGrantType.CLIENT_CREDENTIALS.getValue())))))
@@ -368,7 +370,7 @@ class OAuthSecurityIntegrationTest extends OAuthServiceIntegrationTestSupport {
   @Test
   @DisplayName("DCR rejects multiple redirect base URIs")
   void dcrRejectsMultipleRedirectBaseUris() throws Exception {
-    mvc.perform(post(DCR_ENDPOINT).contentType(APPLICATION_JSON)
+    mvc.perform(post(REGISTER_URL).contentType(APPLICATION_JSON)
                                   .content(toJson(dcrRegistration(
                                                                   List.of(REDIRECT_URI, "https://other-client.com/callback"),
                                                                   List.of(AuthorizationGrantType.AUTHORIZATION_CODE.getValue())))))
@@ -383,7 +385,7 @@ class OAuthSecurityIntegrationTest extends OAuthServiceIntegrationTestSupport {
                                                   List.of(AuthorizationGrantType.AUTHORIZATION_CODE.getValue()));
     request.remove(SCOPE_PARAM);
 
-    mvc.perform(post(DCR_ENDPOINT)
+    mvc.perform(post(REGISTER_URL)
                                   .contentType(APPLICATION_JSON)
                                   .content(toJson(request)))
        .andExpect(status().isCreated())
@@ -519,7 +521,7 @@ class OAuthSecurityIntegrationTest extends OAuthServiceIntegrationTestSupport {
     mvc.perform(post(INTROSPECTION_ENDPOINT).contentType(APPLICATION_FORM_URLENCODED_VALUE)
                                             .param(TOKEN_PARAM, "dummy"))
        .andExpect(status().is3xxRedirection())
-       .andExpect(header().string(HttpHeaders.LOCATION, containsString("/portal/login")));
+       .andExpect(header().string(HttpHeaders.LOCATION, containsString(LOGIN_URL)));
   }
 
   @Test
@@ -589,6 +591,59 @@ class OAuthSecurityIntegrationTest extends OAuthServiceIntegrationTestSupport {
   }
 
   @Test
+  @DisplayName("Public client consent denial redirects with access_denied and no authorization code")
+  void publicClientConsentDenialReturnsAccessDeniedWithoutAuthorizationCode() throws Exception {
+    String redirectUri = CLIENT_ORIGIN + "/callback/cancel-" + UUID.randomUUID();
+
+    RegisteredClient client = publicClient("cancel-consent-client-" + UUID.randomUUID(), redirectUri);
+    oAuthClientService.createClient(client);
+
+    String codeChallenge = s256(CODE_VERIFIER);
+    String state = getRandomState();
+
+    MockHttpSession session = new MockHttpSession();
+
+    MvcResult consentRedirectResult = mvc.perform(get(AUTHORIZE_ENDPOINT)
+                                                                         .session(session)
+                                                                         .with(user(USERNAME).roles(USERS_ROLE))
+                                                                         .queryParam(RESPONSE_TYPE_PARAM, "code")
+                                                                         .queryParam(CLIENT_ID_PARAM, client.getClientId())
+                                                                         .queryParam(REDIRECT_URI_PARAM, redirectUri)
+                                                                         .queryParam(SCOPE_PARAM,
+                                                                                     StringUtils.join(client.getScopes(), " "))
+                                                                         .queryParam(STATE_PARAM, state)
+                                                                         .queryParam(CODE_CHALLENGE_PARAM, codeChallenge)
+                                                                         .queryParam(CODE_CHALLENGE_METHOD_PARAM, "S256"))
+                                         .andExpect(status().is3xxRedirection())
+                                         .andExpect(header().string(HttpHeaders.LOCATION, containsString("/portal/consent")))
+                                         .andReturn();
+
+    String consentLocation = consentRedirectResult.getResponse().getHeader(HttpHeaders.LOCATION);
+    Map<String, String> consentQuery = queryParams(consentLocation);
+    String consentState = consentQuery.get(STATE_PARAM);
+
+    assertThat(consentState).isNotBlank();
+    assertThat(consentState).isNotEqualTo(state);
+
+    MvcResult cancelResult = mvc.perform(post(AUTHORIZE_ENDPOINT)
+                                                                 .session(session)
+                                                                 .with(user(USERNAME).roles(USERS_ROLE))
+                                                                 .contentType(APPLICATION_FORM_URLENCODED_VALUE)
+                                                                 .param(CLIENT_ID_PARAM, client.getClientId())
+                                                                 .param(STATE_PARAM, consentState))
+                                .andExpect(status().is3xxRedirection())
+                                .andExpect(header().string(HttpHeaders.LOCATION, containsString(redirectUri)))
+                                .andReturn();
+
+    String location = cancelResult.getResponse().getHeader(HttpHeaders.LOCATION);
+    Map<String, String> query = queryParams(location);
+
+    assertThat(query.get("error")).isEqualTo("access_denied");
+    assertThat(query.get(STATE_PARAM)).isEqualTo(state);
+    assertThat(query).doesNotContainKey("code");
+  }
+
+  @Test
   @DisplayName("Public client authorization code exchange rejects invalid PKCE verifier")
   void publicClientAuthorizationCodeExchangeRejectsInvalidPkceVerifier() throws Exception {
     String redirectUri = CLIENT_ORIGIN + "/callback/pkce-missing-" + UUID.randomUUID();
@@ -635,7 +690,7 @@ class OAuthSecurityIntegrationTest extends OAuthServiceIntegrationTestSupport {
 
     request.put(TOKEN_ENDPOINT_AUTH_METHOD_PARAM, ClientAuthenticationMethod.CLIENT_SECRET_BASIC.getValue());
 
-    MvcResult firstResult = mvc.perform(post(DCR_ENDPOINT).contentType(APPLICATION_JSON)
+    MvcResult firstResult = mvc.perform(post(REGISTER_URL).contentType(APPLICATION_JSON)
                                                           .content(toJson(request)))
                                .andExpect(status().isCreated())
                                .andExpect(jsonPath(CLIENT_ID_PATH).isNotEmpty())
@@ -648,7 +703,7 @@ class OAuthSecurityIntegrationTest extends OAuthServiceIntegrationTestSupport {
     String clientId = firstBody.path(CLIENT_ID_PARAM).asText();
     String clientSecret = firstBody.path("client_secret").asText();
 
-    MvcResult secondResult = mvc.perform(post(DCR_ENDPOINT)
+    MvcResult secondResult = mvc.perform(post(REGISTER_URL)
                                                            .contentType(APPLICATION_JSON)
                                                            .content(toJson(request)))
                                 .andExpect(status().isCreated())
@@ -728,7 +783,7 @@ class OAuthSecurityIntegrationTest extends OAuthServiceIntegrationTestSupport {
                            .authorizationGrantType(AuthorizationGrantType.AUTHORIZATION_CODE)
                            .redirectUri(redirectUri)
                            .scope(OidcScopes.OPENID)
-                           .scope("profile")
+                           .scope(OidcScopes.PROFILE)
                            .clientSettings(ClientSettings.builder()
                                                          .requireProofKey(true)
                                                          .requireAuthorizationConsent(true)
