@@ -29,14 +29,14 @@ import org.springframework.security.oauth2.server.authorization.OAuth2Authorizat
 import org.springframework.security.oauth2.server.authorization.token.OAuth2TokenContext;
 import org.springframework.stereotype.Service;
 
-import io.meeds.oauth2.server.configuration.plugin.OAuthJwtAudienceProvider;
+import io.meeds.oauth2.server.configuration.plugin.OAuthAccessTokenAudienceProvider;
 import io.meeds.oauth2.server.service.OAuthSettingService;
 
 import lombok.extern.slf4j.Slf4j;
 
 @Service
 @Slf4j
-public class OAuthJwtAudienceTokenRequestProvider implements OAuthJwtAudienceProvider {
+public class OAuthAccessTokenAudienceTokenRequestProvider implements OAuthAccessTokenAudienceProvider {
 
   @Autowired
   private OAuthSettingService oAuthSettingService;

@@ -46,6 +46,8 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 import org.springframework.security.config.annotation.web.configurers.CsrfConfigurer;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.core.ClientAuthenticationMethod;
+import org.springframework.security.oauth2.core.OAuth2Token;
+import org.springframework.security.oauth2.jwt.JwtEncoder;
 import org.springframework.security.oauth2.server.authorization.OAuth2AuthorizationServerMetadata;
 import org.springframework.security.oauth2.server.authorization.config.annotation.web.configurers.OAuth2AuthorizationEndpointConfigurer;
 import org.springframework.security.oauth2.server.authorization.config.annotation.web.configurers.OAuth2AuthorizationServerConfigurer;
@@ -53,6 +55,10 @@ import org.springframework.security.oauth2.server.authorization.config.annotatio
 import org.springframework.security.oauth2.server.authorization.oidc.OidcProviderConfiguration;
 import org.springframework.security.oauth2.server.authorization.oidc.authentication.OidcClientRegistrationAuthenticationToken;
 import org.springframework.security.oauth2.server.authorization.settings.AuthorizationServerSettings;
+import org.springframework.security.oauth2.server.authorization.token.DelegatingOAuth2TokenGenerator;
+import org.springframework.security.oauth2.server.authorization.token.JwtGenerator;
+import org.springframework.security.oauth2.server.authorization.token.OAuth2AccessTokenGenerator;
+import org.springframework.security.oauth2.server.authorization.token.OAuth2TokenGenerator;
 import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.WebAttributes;
@@ -74,11 +80,13 @@ import org.exoplatform.web.security.codec.CodecInitializer;
 import io.meeds.oauth2.server.configuration.model.OAuthDefaultSettings;
 import io.meeds.oauth2.server.plugin.OAuthAuthorizationRequestConverter;
 import io.meeds.oauth2.server.plugin.OAuthDcrHttpAuthenticationConverter;
+import io.meeds.oauth2.server.plugin.OAuthRefreshTokenGenerator;
 import io.meeds.oauth2.server.plugin.OAuthRefreshTokenPublicAuthenticationProvider;
 import io.meeds.oauth2.server.plugin.OAuthRefreshTokenPublicClientAuthenticationConverter;
 import io.meeds.oauth2.server.security.OAuthCimdAuthenticationProvider;
 import io.meeds.oauth2.server.security.OAuthDcrAuthenticationProvider;
 import io.meeds.oauth2.server.security.OAuthPortalAuthenticationProvider;
+import io.meeds.oauth2.server.service.OAuthAccessTokenCustomizerService;
 import io.meeds.oauth2.server.service.OAuthClientService;
 import io.meeds.oauth2.server.service.OAuthSettingService;
 import io.meeds.oauth2.server.web.OAuthCorsConfigurationSource;
@@ -114,6 +122,8 @@ public class OAuthSecurityConfiguration {
                                                              OAuthRefreshTokenPublicAuthenticationProvider oAuthRefreshTokenPublicAuthenticationProvider,
                                                              OAuthRefreshTokenPublicClientAuthenticationConverter oAuthRefreshTokenPublicClientAuthenticationConverter,
                                                              SecurityContextRepository securityContextRepository,
+                                                             @Qualifier("oauthTokenGenerator")
+                                                             OAuth2TokenGenerator<? extends OAuth2Token> tokenGenerator,
                                                              @Qualifier("oauthAuthenticationProvider")
                                                              OAuthDcrAuthenticationProvider oauthAuthenticationProvider,
                                                              @Qualifier("oauthAuthenticationEntryPoint")
@@ -128,7 +138,8 @@ public class OAuthSecurityConfiguration {
                .addFilterBefore(portalPreAuthenticatedFilter, AbstractPreAuthenticatedProcessingFilter.class)
                .authenticationProvider(portalAuthenticationProvider)
                .with(authorizationServer,
-                     a -> a.authorizationEndpoint(e -> customizeAuthorizationEndpoint(e,
+                     a -> a.tokenGenerator(tokenGenerator)
+                           .authorizationEndpoint(e -> customizeAuthorizationEndpoint(e,
                                                                                       cimdAuthenticationProvider,
                                                                                       oAuthAuthorizationRequestConverter))
                            .authorizationServerMetadataEndpoint(oauth -> oauth.authorizationServerMetadataCustomizer(c -> customizeMetadata(c,
@@ -246,6 +257,19 @@ public class OAuthSecurityConfiguration {
                                               listenerService);
   }
   // @formatter:on
+
+  @Bean("oauthTokenGenerator")
+  OAuth2TokenGenerator<? extends OAuth2Token> tokenGenerator(JwtEncoder jwtEncoder, // NOSONAR
+                                                             OAuthAccessTokenCustomizerService oAuthAccessTokenCustomizerService,
+                                                             OAuthRefreshTokenGenerator oAuthRefreshTokenGenerator) {
+    JwtGenerator jwtGenerator = new JwtGenerator(jwtEncoder);
+    jwtGenerator.setJwtCustomizer(oAuthAccessTokenCustomizerService::customize);
+    OAuth2AccessTokenGenerator oAuth2AccessTokenGenerator = new OAuth2AccessTokenGenerator();
+    oAuth2AccessTokenGenerator.setAccessTokenCustomizer(oAuthAccessTokenCustomizerService);
+    return new DelegatingOAuth2TokenGenerator(jwtGenerator,
+                                              oAuth2AccessTokenGenerator,
+                                              oAuthRefreshTokenGenerator);
+  }
 
   @Bean
   RestClient restClient() {
