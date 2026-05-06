@@ -18,15 +18,15 @@
  */
 package io.meeds.oauth2.server.configuration.plugin;
 
-import java.util.Set;
+import java.util.List;
 
 import org.springframework.core.Ordered;
 import org.springframework.security.oauth2.server.authorization.token.OAuth2TokenContext;
 
 @FunctionalInterface
-public interface OAuthJwtAuthorityProvider {
+public interface OAuthAccessTokenAudienceProvider {
 
-  Set<String> provideAuthorities(OAuth2TokenContext context);
+  List<String> provideAudiences(OAuth2TokenContext context);
 
   default int getOrder() {
     return Ordered.HIGHEST_PRECEDENCE;
