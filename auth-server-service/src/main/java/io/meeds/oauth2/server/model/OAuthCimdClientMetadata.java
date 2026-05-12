@@ -43,6 +43,8 @@ public record OAuthCimdClientMetadata(
                                       String scope,
                                       @JsonProperty("token_endpoint_auth_method")
                                       String tokenEndpointAuthMethod,
+                                      @JsonProperty("token_endpoint_auth_signing_alg")
+                                      String tokenEndpointAuthSigningAlg,
                                       @JsonProperty("jwks_uri")
                                       String jwksUri) {
 }

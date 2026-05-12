@@ -40,6 +40,8 @@ import org.springframework.security.oauth2.core.ClientAuthenticationMethod;
 import org.springframework.security.oauth2.core.oidc.OidcScopes;
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClient;
 
+import com.nimbusds.jose.JWSAlgorithm;
+
 import io.meeds.oauth2.server.model.OAuthCimdClientMetadata;
 import io.meeds.oauth2.server.service.OAuthSettingService;
 
@@ -73,8 +75,7 @@ class OAuthCimdClientConverterTest {
   void convertShouldMapCimdMetadataToRegisteredClientAndKeepOnlyAllowedScopes() {
     when(oAuthSettingService.getScopes()).thenReturn(Set.of(OidcScopes.OPENID, OidcScopes.PROFILE, OidcScopes.EMAIL));
 
-    OAuthCimdClientMetadata metadata = new OAuthCimdClientMetadata(
-                                                                   "https://client.example.org/metadata",
+    OAuthCimdClientMetadata metadata = new OAuthCimdClientMetadata("https://client.example.org/metadata",
                                                                    "CIMD Client",
                                                                    APP_URL,
                                                                    APP_LOGO_URL,
@@ -84,6 +85,7 @@ class OAuthCimdClientConverterTest {
                                                                    List.of("code"),
                                                                    "openid unknown",
                                                                    "private_key_jwt",
+                                                                   "RS256",
                                                                    "https://client.example.org/jwks.json");
 
     RegisteredClient client = converter.convert(metadata, Set.of(OidcScopes.PROFILE, "ignored"));
@@ -104,6 +106,7 @@ class OAuthCimdClientConverterTest {
     assertEquals(APP_LOGO_URL, client.getClientSettings().getSetting(CLIENT_LOGO_URI_SETTING));
     assertEquals(APP_POLICY_URL, client.getClientSettings().getSetting(CLIENT_POLICY_URI_SETTING));
     assertEquals("https://client.example.org/jwks.json", client.getClientSettings().getJwkSetUrl());
+    assertEquals(JWSAlgorithm.RS256.getName(), client.getClientSettings().getTokenEndpointAuthenticationSigningAlgorithm().getName());
     assertTrue(client.getClientSettings().isRequireProofKey());
     assertTrue(client.getClientSettings().isRequireAuthorizationConsent());
   }
@@ -112,8 +115,7 @@ class OAuthCimdClientConverterTest {
   void convertShouldSupportPublicClientWithoutOptionalUris() {
     when(oAuthSettingService.getScopes()).thenReturn(Set.of(OidcScopes.OPENID));
 
-    OAuthCimdClientMetadata metadata = new OAuthCimdClientMetadata(
-                                                                   "https://client.example.org/metadata",
+    OAuthCimdClientMetadata metadata = new OAuthCimdClientMetadata("https://client.example.org/metadata",
                                                                    "Public CIMD Client",
                                                                    null,
                                                                    null,
@@ -123,6 +125,7 @@ class OAuthCimdClientConverterTest {
                                                                    List.of("code"),
                                                                    null,
                                                                    "none",
+                                                                   null,
                                                                    null);
 
     RegisteredClient client = converter.convert(metadata, Set.of(OidcScopes.OPENID));

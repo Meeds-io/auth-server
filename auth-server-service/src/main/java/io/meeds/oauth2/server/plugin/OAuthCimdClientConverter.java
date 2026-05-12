@@ -32,6 +32,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.oauth2.core.AuthorizationGrantType;
 import org.springframework.security.oauth2.core.ClientAuthenticationMethod;
+import org.springframework.security.oauth2.jose.jws.SignatureAlgorithm;
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClient;
 import org.springframework.security.oauth2.server.authorization.settings.ClientSettings;
 import org.springframework.security.oauth2.server.authorization.settings.ClientSettings.Builder;
@@ -53,6 +54,9 @@ public class OAuthCimdClientConverter {
                                                   .requireAuthorizationConsent(true);
     if (StringUtils.isNotBlank(metadata.jwksUri())) {
       clientSettingsBuilder.jwkSetUrl(metadata.jwksUri());
+    }
+    if (StringUtils.isNotBlank(metadata.tokenEndpointAuthSigningAlg())) {
+      clientSettingsBuilder.tokenEndpointAuthenticationSigningAlgorithm(SignatureAlgorithm.from(metadata.tokenEndpointAuthSigningAlg()));
     }
     if (StringUtils.isNotBlank(metadata.clientUri())) {
       clientSettingsBuilder.setting(CLIENT_URI_SETTING, metadata.clientUri());
