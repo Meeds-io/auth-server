@@ -70,7 +70,7 @@ class OAuthAuthorizationRequestConverterTest {
     when(delegate.convert(request)).thenReturn(authentication);
     setField(converter, DELEGATE_FIELD_NAME, delegate);
 
-    org.springframework.security.core.Authentication result = converter.convert(request);
+    org.springframework.security.core.Authentication result = converter.converter().convert(request);
 
     assertSame(authentication, result);
     verify(oAuthClientService, never()).getClient(org.mockito.ArgumentMatchers.anyString());
@@ -84,7 +84,7 @@ class OAuthAuthorizationRequestConverterTest {
     when(delegate.convert(request)).thenReturn(token);
     setField(converter, DELEGATE_FIELD_NAME, delegate);
 
-    org.springframework.security.core.Authentication result = converter.convert(request);
+    org.springframework.security.core.Authentication result = converter.converter().convert(request);
 
     assertSame(token, result);
   }
@@ -98,7 +98,7 @@ class OAuthAuthorizationRequestConverterTest {
     when(oAuthClientService.getClient(CLIENT_ID)).thenReturn(null);
     setField(converter, DELEGATE_FIELD_NAME, delegate);
 
-    org.springframework.security.core.Authentication result = converter.convert(request);
+    org.springframework.security.core.Authentication result = converter.converter().convert(request);
 
     assertSame(token, result);
   }
@@ -122,7 +122,8 @@ class OAuthAuthorizationRequestConverterTest {
     setField(converter, DELEGATE_FIELD_NAME, delegate);
 
     OAuth2AuthorizationCodeRequestAuthenticationToken result =
-                                                             (OAuth2AuthorizationCodeRequestAuthenticationToken) converter.convert(request);
+                                                             (OAuth2AuthorizationCodeRequestAuthenticationToken) converter.converter()
+                                                                                                                          .convert(request);
 
     assertEquals(Set.of("openid", "profile"), result.getScopes());
     assertEquals(token.getAuthorizationUri(), result.getAuthorizationUri());

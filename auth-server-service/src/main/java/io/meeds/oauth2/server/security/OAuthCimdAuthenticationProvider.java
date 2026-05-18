@@ -23,6 +23,7 @@ import static io.meeds.oauth2.server.util.OAuthEventType.CLIENT_REGISTER_REJECT_
 import java.util.Set;
 
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.Strings;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.authentication.AuthenticationServiceException;
@@ -122,7 +123,7 @@ public class OAuthCimdAuthenticationProvider implements AuthenticationProvider {
   }
 
   private boolean isCimdClientId(String clientId) {
-    return StringUtils.startsWith(clientId, "https://")
+    return Strings.CS.startsWith(clientId, "https://")
            && oAuthSettingService.isAllowedCimdUrl(clientId)
            && oAuthClientService.getClient(clientId, true) == null;
   }

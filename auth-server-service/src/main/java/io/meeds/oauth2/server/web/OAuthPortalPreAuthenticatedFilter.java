@@ -18,11 +18,21 @@
  */
 package io.meeds.oauth2.server.web;
 
+import java.security.Principal;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
+import org.springframework.security.authentication.jaas.JaasGrantedAuthority;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.FactorGrantedAuthority;
 import org.springframework.security.web.authentication.preauth.AbstractPreAuthenticatedProcessingFilter;
+import org.springframework.security.web.authentication.preauth.PreAuthenticatedAuthenticationToken;
 
 import org.exoplatform.services.security.Identity;
+import org.exoplatform.services.security.jaas.UserPrincipal;
 
 import io.meeds.oauth2.server.security.OAuthPortalAuthenticationProvider;
 
@@ -40,17 +50,32 @@ public class OAuthPortalPreAuthenticatedFilter extends AbstractPreAuthenticatedP
 
   @Override
   protected Object getPreAuthenticatedPrincipal(HttpServletRequest request) {
-    Identity currentIdentity = portalAuthenticationProvider.getCurrentIdentity(request);
-    if (portalAuthenticationProvider.isAnonymousUser(currentIdentity)) {
+    Identity identity = portalAuthenticationProvider.getCurrentIdentity(request);
+    if (portalAuthenticationProvider.isAnonymousUser(identity)) {
       return null;
     } else {
-      return currentIdentity.getUserId();
+      Principal userPrincipal = new UserPrincipal(identity.getUserId());
+      List<GrantedAuthority> authorities = getAuthorities(identity, userPrincipal);
+      authorities.add(FactorGrantedAuthority.withAuthority("FACTOR_PASSWORD")
+                                            .issuedAt(Instant.now())
+                                            .build());
+
+      return new PreAuthenticatedAuthenticationToken(userPrincipal,
+                                                     identity.getUserId(),
+                                                     authorities);
     }
   }
 
   @Override
   protected Object getPreAuthenticatedCredentials(HttpServletRequest request) {
     return PLACEHOLDER_PASSWORD;
+  }
+
+  private List<GrantedAuthority> getAuthorities(Identity identity, Principal principal) {
+    return identity.getRoles()
+                   .stream()
+                   .map(role -> (GrantedAuthority) new JaasGrantedAuthority(role, principal))
+                   .collect(Collectors.toCollection(ArrayList::new));
   }
 
 }
