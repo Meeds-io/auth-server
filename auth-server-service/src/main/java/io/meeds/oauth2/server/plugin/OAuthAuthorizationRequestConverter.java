@@ -31,38 +31,37 @@ import org.springframework.stereotype.Component;
 
 import io.meeds.oauth2.server.service.OAuthClientService;
 
-import jakarta.servlet.http.HttpServletRequest;
-
 @Component
-public class OAuthAuthorizationRequestConverter implements AuthenticationConverter {
+public class OAuthAuthorizationRequestConverter {
 
   private final AuthenticationConverter delegate = new OAuth2AuthorizationCodeRequestAuthenticationConverter();
 
   @Autowired
   private OAuthClientService            oAuthClientService;
 
-  @Override
-  public Authentication convert(HttpServletRequest request) {
-    Authentication authentication = delegate.convert(request);
-    if (!(authentication instanceof OAuth2AuthorizationCodeRequestAuthenticationToken token)) {
-      return authentication;
-    }
-    Set<String> requestedScopes = token.getScopes();
-    if (requestedScopes != null && !requestedScopes.isEmpty()) {
-      return token;
-    }
-    RegisteredClient cClient = oAuthClientService.getClient(token.getClientId());
-    if (cClient == null) {
-      return token;
-    }
-    Set<String> defaultScopes = new LinkedHashSet<>(cClient.getScopes());
-    return new OAuth2AuthorizationCodeRequestAuthenticationToken(token.getAuthorizationUri(),
-                                                                 token.getClientId(),
-                                                                 (Authentication) token.getPrincipal(),
-                                                                 token.getRedirectUri(),
-                                                                 token.getState(),
-                                                                 defaultScopes,
-                                                                 token.getAdditionalParameters());
+  public AuthenticationConverter converter() {
+    return request -> {
+      Authentication authentication = delegate.convert(request);
+      if (!(authentication instanceof OAuth2AuthorizationCodeRequestAuthenticationToken token)) {
+        return authentication;
+      }
+      Set<String> requestedScopes = token.getScopes();
+      if (requestedScopes != null && !requestedScopes.isEmpty()) {
+        return token;
+      }
+      RegisteredClient cClient = oAuthClientService.getClient(token.getClientId());
+      if (cClient == null) {
+        return token;
+      }
+      Set<String> defaultScopes = new LinkedHashSet<>(cClient.getScopes());
+      return new OAuth2AuthorizationCodeRequestAuthenticationToken(token.getAuthorizationUri(),
+                                                                   token.getClientId(),
+                                                                   (Authentication) token.getPrincipal(),
+                                                                   token.getRedirectUri(),
+                                                                   token.getState(),
+                                                                   defaultScopes,
+                                                                   token.getAdditionalParameters());
+    };
   }
 
 }

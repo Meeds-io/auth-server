@@ -175,6 +175,16 @@ public class OAuthCorsConfigurationSource extends UrlBasedCorsConfigurationSourc
     return pathPatterns;
   }
 
+  /**
+   * A redirect URI authorizes CORS only for its own origin: the URI is the
+   * origin itself or starts with the origin followed by a path separator. A bare
+   * prefix test would let an Origin header that is a truncation of the allowed
+   * host (e.g. 'https://client.co' against 'https://client.com/callback') pass.
+   */
+  private static boolean isUnderOrigin(String redirectUri, String origin) {
+    return redirectUri.equals(origin) || redirectUri.startsWith(origin + "/");
+  }
+
   private PathPattern getAllowedPathPattern(String origin, HttpServletRequest request) {
     String uri = request.getRequestURI();
     if (StringUtils.isBlank(origin)
@@ -188,12 +198,12 @@ public class OAuthCorsConfigurationSource extends UrlBasedCorsConfigurationSourc
                  || (CollectionUtils.isNotEmpty(oAuthSettingService.getAllowedOrigins())
                      && oAuthSettingService.getAllowedOrigins().stream().anyMatch(o -> o.equals(origin)))
                  || (CollectionUtils.isNotEmpty(oAuthSettingService.getAllowedRedirectUris())
-                     && oAuthSettingService.getAllowedRedirectUris().stream().anyMatch(o -> o.startsWith(origin + "/")))
+                     && oAuthSettingService.getAllowedRedirectUris().stream().anyMatch(o -> isUnderOrigin(o, origin)))
                  || oAuthClientService.getClients(false)
                                       .stream()
                                       .filter(c -> c.getRedirectUris() != null)
                                       .flatMap(c -> c.getRedirectUris().stream())
-                                      .anyMatch(o -> o.startsWith(origin + "/"))) {
+                                      .anyMatch(o -> isUnderOrigin(o, origin))) {
         log.trace("Allowed Cors for Origin '{}' using URI {} and HTTP Method '{}'", origin, uri, request.getMethod());
         return pathPattern;
       } else {

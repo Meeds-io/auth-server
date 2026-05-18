@@ -42,34 +42,35 @@ import jakarta.servlet.http.HttpServletRequest;
  * Override default in order to allow using DCR with empty scopes
  */
 @Component
-public class OAuthDcrHttpAuthenticationConverter implements AuthenticationConverter {
+public class OAuthDcrHttpAuthenticationConverter {
 
   @Autowired
   private OAuthDcrHttpMessageConverter oAuthDcrHttpMessageConverter;
 
-  @Override
-  public Authentication convert(HttpServletRequest request) {
-    Authentication principal = SecurityContextHolder.getContext().getAuthentication();
-    if ("POST".equals(request.getMethod())) {
-      OidcClientRegistration clientRegistration;
-      try {
-        clientRegistration = this.oAuthDcrHttpMessageConverter.read(OidcClientRegistration.class,
-                                                                    new ServletServerHttpRequest(request));
-      } catch (Exception ex) {
-        OAuth2Error error = new OAuth2Error(OAuth2ErrorCodes.INVALID_REQUEST,
-                                            "OpenID Client Registration Error: " + ex.getMessage(),
-                                            "https://openid.net/specs/openid-connect-registration-1_0.html#RegistrationError");
-        throw new OAuth2AuthenticationException(error, ex);
+  public AuthenticationConverter converter() {
+    return request -> {
+      Authentication principal = SecurityContextHolder.getContext().getAuthentication();
+      if ("POST".equals(request.getMethod())) {
+        OidcClientRegistration clientRegistration;
+        try {
+          clientRegistration = this.oAuthDcrHttpMessageConverter.read(OidcClientRegistration.class,
+                                                                      new ServletServerHttpRequest(request));
+        } catch (Exception ex) {
+          OAuth2Error error = new OAuth2Error(OAuth2ErrorCodes.INVALID_REQUEST,
+                                              "OpenID Client Registration Error: " + ex.getMessage(),
+                                              "https://openid.net/specs/openid-connect-registration-1_0.html#RegistrationError");
+          throw new OAuth2AuthenticationException(error, ex);
+        }
+        return new OidcClientRegistrationAuthenticationToken(principal, clientRegistration);
+      } else {
+        MultiValueMap<String, String> parameters = getQueryParameters(request);
+        String clientId = parameters.getFirst(OAuth2ParameterNames.CLIENT_ID);
+        if (!StringUtils.hasText(clientId) || parameters.get(OAuth2ParameterNames.CLIENT_ID).size() != 1) {
+          throw new OAuth2AuthenticationException(OAuth2ErrorCodes.INVALID_REQUEST);
+        }
+        return new OidcClientRegistrationAuthenticationToken(principal, clientId);
       }
-      return new OidcClientRegistrationAuthenticationToken(principal, clientRegistration);
-    } else {
-      MultiValueMap<String, String> parameters = getQueryParameters(request);
-      String clientId = parameters.getFirst(OAuth2ParameterNames.CLIENT_ID);
-      if (!StringUtils.hasText(clientId) || parameters.get(OAuth2ParameterNames.CLIENT_ID).size() != 1) {
-        throw new OAuth2AuthenticationException(OAuth2ErrorCodes.INVALID_REQUEST);
-      }
-      return new OidcClientRegistrationAuthenticationToken(principal, clientId);
-    }
+    };
   }
 
   private MultiValueMap<String, String> getQueryParameters(HttpServletRequest request) {

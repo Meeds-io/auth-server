@@ -41,10 +41,11 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.Strings;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.autoconfigure.security.oauth2.server.servlet.OAuth2AuthorizationServerProperties.Client;
-import org.springframework.boot.autoconfigure.security.oauth2.server.servlet.OAuth2AuthorizationServerProperties.Token;
+import org.springframework.boot.security.oauth2.server.authorization.autoconfigure.servlet.OAuth2AuthorizationServerProperties.Client;
+import org.springframework.boot.security.oauth2.server.authorization.autoconfigure.servlet.OAuth2AuthorizationServerProperties.Token;
 import org.springframework.boot.context.properties.PropertyMapper;
 import org.springframework.security.oauth2.core.oidc.OidcScopes;
 import org.springframework.security.oauth2.jose.jws.JwsAlgorithm;
@@ -338,11 +339,12 @@ public class OAuthSettingService {
   public ClientSettings getPublicClientSettings() {
     Client client = defaultSettings.getPublicClient();
     ClientSettings.Builder builder = ClientSettings.builder();
-    PropertyMapper propertyMapper = PropertyMapper.get().alwaysApplyingWhenNonNull();
-    propertyMapper.from(client::isRequireProofKey).to(builder::requireProofKey);
-    propertyMapper.from(client::isRequireAuthorizationConsent).to(builder::requireAuthorizationConsent);
-    propertyMapper.from(client::getJwkSetUri).to(builder::jwkSetUrl);
+    PropertyMapper propertyMapper = PropertyMapper.get();
+    propertyMapper.from(client::isRequireProofKey).whenHasText().to(builder::requireProofKey);
+    propertyMapper.from(client::isRequireAuthorizationConsent).whenHasText().to(builder::requireAuthorizationConsent);
+    propertyMapper.from(client::getJwkSetUri).whenHasText().to(builder::jwkSetUrl);
     propertyMapper.from(client::getTokenEndpointAuthenticationSigningAlgorithm)
+                  .whenHasText()
                   .as(this::jwsAlgorithm)
                   .to(builder::tokenEndpointAuthenticationSigningAlgorithm);
     builder.requireAuthorizationConsent(true);
@@ -353,14 +355,15 @@ public class OAuthSettingService {
   public TokenSettings getPublicClientTokenSettings() {
     Token token = defaultSettings.getPublicClient().getToken();
     TokenSettings.Builder builder = TokenSettings.builder();
-    PropertyMapper propertyMapper = PropertyMapper.get().alwaysApplyingWhenNonNull();
-    propertyMapper.from(token::getAuthorizationCodeTimeToLive).to(builder::authorizationCodeTimeToLive);
-    propertyMapper.from(token::getAccessTokenTimeToLive).to(builder::accessTokenTimeToLive);
-    propertyMapper.from(token::getDeviceCodeTimeToLive).to(builder::deviceCodeTimeToLive);
-    propertyMapper.from(token::getRefreshTokenTimeToLive).to(builder::refreshTokenTimeToLive);
-    propertyMapper.from(token::getAccessTokenFormat).as(OAuth2TokenFormat::new).to(builder::accessTokenFormat);
-    propertyMapper.from(token::isReuseRefreshTokens).to(builder::reuseRefreshTokens);
+    PropertyMapper propertyMapper = PropertyMapper.get();
+    propertyMapper.from(token::getAuthorizationCodeTimeToLive).whenHasText().to(builder::authorizationCodeTimeToLive);
+    propertyMapper.from(token::getAccessTokenTimeToLive).whenHasText().to(builder::accessTokenTimeToLive);
+    propertyMapper.from(token::getDeviceCodeTimeToLive).whenHasText().to(builder::deviceCodeTimeToLive);
+    propertyMapper.from(token::getRefreshTokenTimeToLive).whenHasText().to(builder::refreshTokenTimeToLive);
+    propertyMapper.from(token::getAccessTokenFormat).whenHasText().as(OAuth2TokenFormat::new).to(builder::accessTokenFormat);
+    propertyMapper.from(token::isReuseRefreshTokens).whenHasText().to(builder::reuseRefreshTokens);
     propertyMapper.from(token::getIdTokenSignatureAlgorithm)
+                  .whenHasText()
                   .as(this::signatureAlgorithm)
                   .to(builder::idTokenSignatureAlgorithm);
     return builder.build();
@@ -422,9 +425,9 @@ public class OAuthSettingService {
   private boolean isAllowedUriPrefix(String allowedPrefix, String candidateUri) {
     URI allowed = URI.create(allowedPrefix).normalize();
     URI candidate = URI.create(candidateUri).normalize();
-    if (!StringUtils.equalsIgnoreCase(allowed.getScheme(), candidate.getScheme())) {
+    if (!Strings.CI.equals(allowed.getScheme(), candidate.getScheme())) {
       return false;
-    } else if (!StringUtils.equals(normalizeHost(allowed.getHost()), normalizeHost(candidate.getHost()))) {
+    } else if (!Strings.CS.equals(normalizeHost(allowed.getHost()), normalizeHost(candidate.getHost()))) {
       return false;
     } else if (allowed.getUserInfo() != null || candidate.getUserInfo() != null) {
       return false;

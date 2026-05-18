@@ -28,8 +28,8 @@ import java.util.List;
 
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.boot.autoconfigure.security.oauth2.server.servlet.OAuth2AuthorizationServerProperties;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.boot.security.oauth2.server.authorization.autoconfigure.servlet.OAuth2AuthorizationServerProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.Ordered;
@@ -44,14 +44,14 @@ import org.springframework.security.config.annotation.method.configuration.Enabl
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.CsrfConfigurer;
+import org.springframework.security.config.annotation.web.configurers.oauth2.server.authorization.OAuth2AuthorizationEndpointConfigurer;
+import org.springframework.security.config.annotation.web.configurers.oauth2.server.authorization.OAuth2AuthorizationServerConfigurer;
+import org.springframework.security.config.annotation.web.configurers.oauth2.server.authorization.OidcClientRegistrationEndpointConfigurer;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.core.ClientAuthenticationMethod;
 import org.springframework.security.oauth2.core.OAuth2Token;
 import org.springframework.security.oauth2.jwt.JwtEncoder;
 import org.springframework.security.oauth2.server.authorization.OAuth2AuthorizationServerMetadata;
-import org.springframework.security.oauth2.server.authorization.config.annotation.web.configurers.OAuth2AuthorizationEndpointConfigurer;
-import org.springframework.security.oauth2.server.authorization.config.annotation.web.configurers.OAuth2AuthorizationServerConfigurer;
-import org.springframework.security.oauth2.server.authorization.config.annotation.web.configurers.OidcClientRegistrationEndpointConfigurer;
 import org.springframework.security.oauth2.server.authorization.oidc.OidcProviderConfiguration;
 import org.springframework.security.oauth2.server.authorization.oidc.authentication.OidcClientRegistrationAuthenticationToken;
 import org.springframework.security.oauth2.server.authorization.settings.AuthorizationServerSettings;
@@ -83,7 +83,6 @@ import io.meeds.oauth2.server.plugin.OAuthDcrHttpAuthenticationConverter;
 import io.meeds.oauth2.server.plugin.OAuthRefreshTokenGenerator;
 import io.meeds.oauth2.server.plugin.OAuthRefreshTokenPublicAuthenticationProvider;
 import io.meeds.oauth2.server.plugin.OAuthRefreshTokenPublicClientAuthenticationConverter;
-import io.meeds.oauth2.server.security.OAuthCimdAuthenticationProvider;
 import io.meeds.oauth2.server.security.OAuthDcrAuthenticationProvider;
 import io.meeds.oauth2.server.security.OAuthPortalAuthenticationProvider;
 import io.meeds.oauth2.server.service.OAuthAccessTokenCustomizerService;
@@ -116,7 +115,6 @@ public class OAuthSecurityConfiguration {
                                                              OAuthSettingService oAuthSettingService,
                                                              OAuthPortalAuthenticationProvider portalAuthenticationProvider,
                                                              OAuthPortalPreAuthenticatedFilter portalPreAuthenticatedFilter,
-                                                             OAuthCimdAuthenticationProvider cimdAuthenticationProvider,
                                                              OAuthDcrHttpAuthenticationConverter oAuthDcrHttpAuthenticationConverter,
                                                              OAuthAuthorizationRequestConverter oAuthAuthorizationRequestConverter,
                                                              OAuthRefreshTokenPublicAuthenticationProvider oAuthRefreshTokenPublicAuthenticationProvider,
@@ -129,8 +127,8 @@ public class OAuthSecurityConfiguration {
                                                              @Qualifier("oauthAuthenticationEntryPoint")
                                                              AuthenticationEntryPoint oauthAuthenticationEntryPoint,
                                                              @Qualifier("oauthAccessDeniedHandler")
-                                                             AccessDeniedHandler oauthAccessDeniedHandler) throws Exception {
-    OAuth2AuthorizationServerConfigurer authorizationServer = OAuth2AuthorizationServerConfigurer.authorizationServer();
+                                                             AccessDeniedHandler oauthAccessDeniedHandler) {
+    OAuth2AuthorizationServerConfigurer authorizationServer = new OAuth2AuthorizationServerConfigurer();
     return http.securityMatcher(authorizationServer.getEndpointsMatcher())
                .securityContext(sc -> sc.securityContextRepository(securityContextRepository))
                .csrf(CsrfConfigurer::disable)
@@ -139,13 +137,11 @@ public class OAuthSecurityConfiguration {
                .authenticationProvider(portalAuthenticationProvider)
                .with(authorizationServer,
                      a -> a.tokenGenerator(tokenGenerator)
-                           .authorizationEndpoint(e -> customizeAuthorizationEndpoint(e,
-                                                                                      cimdAuthenticationProvider,
-                                                                                      oAuthAuthorizationRequestConverter))
+                           .authorizationEndpoint(e -> customizeAuthorizationEndpoint(e, oAuthAuthorizationRequestConverter))
                            .authorizationServerMetadataEndpoint(oauth -> oauth.authorizationServerMetadataCustomizer(c -> customizeMetadata(c,
                                                                                                                                             oAuthSettingService)))
                            .clientAuthentication(oauth -> oauth.authenticationConverters(converters -> converters.add(0,
-                                                                                                                      oAuthRefreshTokenPublicClientAuthenticationConverter))
+                                                                                                                      oAuthRefreshTokenPublicClientAuthenticationConverter.converter()))
                                                                .authenticationProviders(providers -> providers.add(0,
                                                                                                                    oAuthRefreshTokenPublicAuthenticationProvider)))
                            .oidc(oidc -> oidc.clientRegistrationEndpoint(e -> customizeRegistrationEndpoint(e,
@@ -320,18 +316,17 @@ public class OAuthSecurityConfiguration {
   }
 
   private OAuth2AuthorizationEndpointConfigurer customizeAuthorizationEndpoint(OAuth2AuthorizationEndpointConfigurer authorizationEndpoint,
-                                                                               OAuthCimdAuthenticationProvider cimdAuthenticationProvider,
                                                                                OAuthAuthorizationRequestConverter oAuthAuthorizationRequestConverter) {
     return authorizationEndpoint.consentPage(CommonsUtils.getCurrentDomain() + CONSENT_URL)
-                                .authenticationProviders(ap -> ap.add(0, cimdAuthenticationProvider))
-                                .authorizationRequestConverters(c -> c.add(0, oAuthAuthorizationRequestConverter));
+                                .authorizationRequestConverters(c -> c.add(0, oAuthAuthorizationRequestConverter.converter()));
   }
 
   private OidcClientRegistrationEndpointConfigurer customizeRegistrationEndpoint(OidcClientRegistrationEndpointConfigurer registrationEndpointConfigurer,
                                                                                  OAuthDcrAuthenticationProvider oauthAuthenticationProvider,
                                                                                  OAuthDcrHttpAuthenticationConverter oAuthDcrHttpAuthenticationConverter) {
     return registrationEndpointConfigurer.authenticationProviders(p -> p.add(0, oauthAuthenticationProvider))
-                                         .clientRegistrationRequestConverters(c -> c.add(0, oAuthDcrHttpAuthenticationConverter));
+                                         .clientRegistrationRequestConverters(c -> c.add(0,
+                                                                                         oAuthDcrHttpAuthenticationConverter.converter()));
   }
 
   private void customizeMetadataScopes(OAuthSettingService oAuthSettingService, List<String> scopes) {

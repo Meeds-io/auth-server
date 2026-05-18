@@ -22,6 +22,6 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 
 @Service("passwordEncoder")
-public class OAuthPasswordEncoder extends BCryptPasswordEncoder {
+public class OAuthPasswordEncoder extends BCryptPasswordEncoder implements OAuthPasswordEncoderService {
 
 }

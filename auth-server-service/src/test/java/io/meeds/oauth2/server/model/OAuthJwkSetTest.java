@@ -30,7 +30,7 @@ class OAuthJwkSetTest {
 
   @Test
   void allArgsConstructorShouldSetEntries() {
-    Instant activatedAt = Instant.parse("2026-01-01T10:00:00Z");
+    Instant activatedAt = Instant.parse("2026-01-01T10:00:00Z"); // NOSONAR
     OAuthJwkSet.OAuthJwkEntry entry = new OAuthJwkSet.OAuthJwkEntry("{\"kty\":\"RSA\"}", activatedAt);
 
     OAuthJwkSet jwkSet = new OAuthJwkSet(List.of(entry));

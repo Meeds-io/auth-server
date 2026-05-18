@@ -16,25 +16,17 @@
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
-package io.meeds.oauth2.server.configuration.model;
+package io.meeds.oauth2.server.security;
 
-import org.springframework.boot.security.oauth2.server.authorization.autoconfigure.servlet.OAuth2AuthorizationServerProperties.Client;
-import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
 
-import lombok.Data;
-
-@Data
-@ConfigurationProperties("meeds.oauth")
-public class OAuthDefaultSettings {
-
-  private final Client publicClient = new Client();
-
-  private String       allowedCimdUriPrefixes;
-
-  private String       allowedRedirectUriPrefixes;
-
-  private String       allowedOrigins;
-
-  private String       issuerUrl;
-
+/**
+ * Marker interface exposing {@link OAuthPasswordEncoder} to other Spring
+ * contexts through a JDK dynamic proxy instead of a CGLIB proxy on the concrete
+ * class, which can't override the {@code final} methods of
+ * {@link org.springframework.security.crypto.password.AbstractValidatingPasswordEncoder}.
+ */
+@Service
+public interface OAuthPasswordEncoderService extends PasswordEncoder {
 }
