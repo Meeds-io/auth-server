@@ -18,7 +18,7 @@
  */
 package io.meeds.oauth2.server.configuration.model;
 
-import org.springframework.boot.autoconfigure.security.oauth2.server.servlet.OAuth2AuthorizationServerProperties.Client;
+import org.springframework.boot.security.oauth2.server.authorization.autoconfigure.servlet.OAuth2AuthorizationServerProperties.Client;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 import lombok.Data;

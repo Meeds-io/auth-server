@@ -3,6 +3,13 @@
     "eslint-config-meedsio"
   ],
   "rules": {
-    "vue/multi-word-component-names": "off"
+    "vue/multi-word-component-names": "off",
+    "valid-jsdoc": "off",
+    "no-undefined": "off",
+    "no-unused-vars": "off",
+    "no-prototype-builtins": "off",
+    "prefer-rest-params": "off",
+    "prefer-spread": "off",
+    "new-cap": "off"
   }
 }

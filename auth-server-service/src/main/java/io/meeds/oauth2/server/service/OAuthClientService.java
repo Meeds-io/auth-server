@@ -177,7 +177,6 @@ public class OAuthClientService {
     return getClient(clientId, false);
   }
 
-  @SuppressWarnings("removal")
   public RegisteredClient register(RegisteredClient publicClient) throws ClientRegistrationRateLimitException,
                                                                   IllegalAccessException,
                                                                   ObjectNotFoundException {
@@ -222,7 +221,6 @@ public class OAuthClientService {
     RegisteredClient client = getClient(clientId, false);
     if (client == null
         || !client.getAuthorizationGrantTypes().contains(AuthorizationGrantType.AUTHORIZATION_CODE)
-        || client.getAuthorizationGrantTypes().contains(AuthorizationGrantType.PASSWORD)
         || client.getAuthorizationGrantTypes().contains(AuthorizationGrantType.JWT_BEARER)
         || (client.getAuthorizationGrantTypes().contains(AuthorizationGrantType.CLIENT_CREDENTIALS)
             && !Objects.equals(client.getClientSettings().getSetting(CLIENT_IS_CIMD_SETTING), true)
