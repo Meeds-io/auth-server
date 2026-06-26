@@ -26,7 +26,7 @@
   <parent>
     <groupId>io.meeds.auth-server</groupId>
     <artifactId>auth-server</artifactId>
-    <version>7.3.x-SNAPSHOT</version>
+    <version>7.3.x-experience-SNAPSHOT</version>
   </parent>
   <artifactId>auth-server-service</artifactId>
   <packaging>jar</packaging>
