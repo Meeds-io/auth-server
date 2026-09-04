@@ -18,7 +18,7 @@
  */
 package io.meeds.oauth2.server.plugin;
 
-import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.Strings;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
@@ -49,7 +49,7 @@ public class OAuthClientAclPlugin implements AclPlugin {
 
   @Override
   public boolean hasPermission(String objectId, String permissionType, Identity userIdentity) {
-    if (StringUtils.equals(permissionType, VIEW_PERMISSION_TYPE)) {
+    if (Strings.CS.equals(permissionType, VIEW_PERMISSION_TYPE)) {
       // Public clients read-only
       return true;
     } else {

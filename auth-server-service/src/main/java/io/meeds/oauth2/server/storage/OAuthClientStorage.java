@@ -73,7 +73,7 @@ public class OAuthClientStorage implements RegisteredClientRepository {
   }
 
   @Override
-  @Cacheable(CACHE_NAME)
+  @Cacheable(cacheNames = CACHE_NAME, unless = "#result == null")
   public RegisteredClient findById(String clientId) {
     return dao.findByClientIdAndEnabledTrue(clientId)
               .map(EntityMapper::toObject)
@@ -81,14 +81,14 @@ public class OAuthClientStorage implements RegisteredClientRepository {
   }
 
   @Override
-  @Cacheable(CACHE_NAME)
+  @Cacheable(cacheNames = CACHE_NAME, unless = "#result == null")
   public RegisteredClient findByClientId(String clientId) {
     return dao.findByClientIdAndEnabledTrue(clientId)
               .map(EntityMapper::toObject)
               .orElse(null);
   }
 
-  @Cacheable(cacheNames = CACHE_NAME, key = "{#p0, #p1}")
+  @Cacheable(cacheNames = CACHE_NAME, key = "{#p0, #p1}", unless = "#result == null")
   public RegisteredClient getClient(String clientId, boolean includeDisabled) {
     if (includeDisabled) {
       return dao.findByClientId(clientId)

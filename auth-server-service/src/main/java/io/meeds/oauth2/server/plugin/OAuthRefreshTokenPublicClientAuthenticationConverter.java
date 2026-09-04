@@ -22,7 +22,6 @@ import java.util.Collections;
 
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.core.AuthorizationGrantType;
 import org.springframework.security.oauth2.core.ClientAuthenticationMethod;
 import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
@@ -35,37 +34,36 @@ import org.springframework.stereotype.Component;
 
 import io.meeds.oauth2.server.service.OAuthClientService;
 
-import jakarta.servlet.http.HttpServletRequest;
-
 @Component
-public final class OAuthRefreshTokenPublicClientAuthenticationConverter implements AuthenticationConverter {
+public final class OAuthRefreshTokenPublicClientAuthenticationConverter {
 
   @Autowired
   private OAuthClientService oAuthClientService;
 
-  @Override
-  public Authentication convert(HttpServletRequest request) {
-    String grantType = request.getParameter(OAuth2ParameterNames.GRANT_TYPE);
-    if (!AuthorizationGrantType.REFRESH_TOKEN.getValue().equals(grantType)) {
-      return null;
-    }
-    String clientId = request.getParameter(OAuth2ParameterNames.CLIENT_ID);
-    if (StringUtils.isBlank(clientId)) {
-      return null;
-    }
-    RegisteredClient registeredClient = oAuthClientService.getClient(clientId);
-    if (registeredClient == null
-        || !registeredClient.getClientAuthenticationMethods().contains(ClientAuthenticationMethod.NONE)) {
-      return null;
-    } else if (!registeredClient.getAuthorizationGrantTypes()
-                                .contains(AuthorizationGrantType.REFRESH_TOKEN)) {
-      throw new OAuth2AuthenticationException(OAuth2ErrorCodes.UNAUTHORIZED_CLIENT);
-    } else {
-      return new OAuth2ClientAuthenticationToken(clientId,
-                                                 ClientAuthenticationMethod.NONE,
-                                                 null,
-                                                 Collections.emptyMap());
-    }
+  public AuthenticationConverter converter() {
+    return request -> {
+      String grantType = request.getParameter(OAuth2ParameterNames.GRANT_TYPE);
+      if (!AuthorizationGrantType.REFRESH_TOKEN.getValue().equals(grantType)) {
+        return null;
+      }
+      String clientId = request.getParameter(OAuth2ParameterNames.CLIENT_ID);
+      if (StringUtils.isBlank(clientId)) {
+        return null;
+      }
+      RegisteredClient registeredClient = oAuthClientService.getClient(clientId);
+      if (registeredClient == null
+          || !registeredClient.getClientAuthenticationMethods().contains(ClientAuthenticationMethod.NONE)) {
+        return null;
+      } else if (!registeredClient.getAuthorizationGrantTypes()
+                                  .contains(AuthorizationGrantType.REFRESH_TOKEN)) {
+        throw new OAuth2AuthenticationException(OAuth2ErrorCodes.UNAUTHORIZED_CLIENT);
+      } else {
+        return new OAuth2ClientAuthenticationToken(clientId,
+                                                   ClientAuthenticationMethod.NONE,
+                                                   null,
+                                                   Collections.emptyMap());
+      }
+    };
   }
 
 }

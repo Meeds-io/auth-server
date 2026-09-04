@@ -26,10 +26,13 @@ import org.junit.jupiter.api.Test;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import lombok.SneakyThrows;
+
 class OAuthCimdClientMetadataTest {
 
   @Test
-  void jsonShouldDeserializeUsingSnakeCaseProperties() throws Exception {
+  @SneakyThrows
+  void jsonShouldDeserializeUsingSnakeCaseProperties() {
     ObjectMapper mapper = new ObjectMapper();
 
     OAuthCimdClientMetadata metadata = mapper.readValue("""

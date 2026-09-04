@@ -34,12 +34,10 @@ import jakarta.persistence.Convert;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
-import jakarta.persistence.SequenceGenerator;
+import io.meeds.common.persistence.PortableSequence;
 import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -53,8 +51,7 @@ import lombok.NoArgsConstructor;
 public class OAuthClientEntity {
 
   @Id
-  @SequenceGenerator(name = "SEQ_AUTH_SERVER_CLIENTS_ID", sequenceName = "SEQ_AUTH_SERVER_CLIENTS_ID", allocationSize = 1)
-  @GeneratedValue(strategy = GenerationType.AUTO, generator = "SEQ_AUTH_SERVER_CLIENTS_ID")
+  @PortableSequence(name = "SEQ_AUTH_SERVER_CLIENTS_ID")
   @Column(name = "ID")
   private Long                id;
 

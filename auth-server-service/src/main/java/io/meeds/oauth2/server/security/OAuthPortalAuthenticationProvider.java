@@ -18,6 +18,8 @@
  */
 package io.meeds.oauth2.server.security;
 
+import java.time.Instant;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
@@ -28,6 +30,7 @@ import org.springframework.security.authentication.jaas.JaasGrantedAuthority;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.FactorGrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.web.authentication.preauth.PreAuthenticatedAuthenticationToken;
 import org.springframework.stereotype.Component;
@@ -50,8 +53,11 @@ import org.exoplatform.services.security.web.HttpSessionStateKey;
 import io.meeds.common.ContainerTransactional;
 
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpSession;
 import lombok.SneakyThrows;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @Component
 public class OAuthPortalAuthenticationProvider implements AuthenticationProvider {
 
@@ -103,7 +109,7 @@ public class OAuthPortalAuthenticationProvider implements AuthenticationProvider
       } else {
         return new PreAuthenticatedAuthenticationToken(identity.getUserId(),
                                                        identity.getUserId(),
-                                                       getAuthorities(identity));
+                                                       getAuthorities(identity, request));
       }
     } catch (Exception e) {
       throw new AuthenticationServiceException("An unknown error is encountered while authenticating user", e);
@@ -124,11 +130,33 @@ public class OAuthPortalAuthenticationProvider implements AuthenticationProvider
     }
   }
 
-  private List<? extends GrantedAuthority> getAuthorities(Identity identity) {
-    return identity.getRoles()
-                   .stream()
-                   .map(SimpleGrantedAuthority::new)
-                   .toList();
+  private List<? extends GrantedAuthority> getAuthorities(Identity identity, HttpServletRequest request) {
+    List<GrantedAuthority> authorities = identity.getRoles()
+                                                 .stream()
+                                                 .map(role -> (GrantedAuthority) new SimpleGrantedAuthority(role))
+                                                 .collect(java.util.stream.Collectors.toCollection(ArrayList::new));
+    // Required since upgrade to Spring Security 7 / Spring Boot 4.1:
+    // JwtGenerator now derives the OIDC "auth_time" claim from a
+    // FactorGrantedAuthority's issuedAt() instead of session tracking.
+    // Without this, ID token generation fails with
+    // "authenticationTime cannot be null".
+    // Use the HTTP session creation time as a proxy for the actual portal
+    // login instant (this method is re-invoked on every request, not just
+    // login, so Instant.now() here would keep "resetting" auth_time).
+    Instant authenticationInstant = Instant.now();
+    try {
+      HttpSession session = request.getSession(false);
+      if (session != null) {
+        authenticationInstant = Instant.ofEpochMilli(session.getCreationTime());
+      }
+    } catch (IllegalStateException e) {
+      // session invalidated concurrently: fall back to now()
+      log.debug("Could not read session creation time, falling back to now()", e);
+    }
+    authorities.add(FactorGrantedAuthority.withAuthority("FACTOR_PASSWORD")
+                                          .issuedAt(authenticationInstant)
+                                          .build());
+    return authorities;
   }
 
   private ConversationState buildState(String userId, StateKey stateKey) {

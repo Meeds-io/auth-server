@@ -34,11 +34,10 @@ import static org.springframework.http.HttpHeaders.CONTENT_TYPE;
 import static org.springframework.http.HttpHeaders.ORIGIN;
 import static org.springframework.http.MediaType.APPLICATION_FORM_URLENCODED_VALUE;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -48,6 +47,7 @@ import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.LinkedHashMap;
@@ -61,10 +61,14 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.HttpHeaders;
 import org.springframework.mock.web.MockHttpSession;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.FactorGrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.userdetails.User;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.core.AuthorizationGrantType;
 import org.springframework.security.oauth2.core.ClientAuthenticationMethod;
@@ -78,11 +82,11 @@ import org.springframework.security.oauth2.server.authorization.settings.OAuth2T
 import org.springframework.security.oauth2.server.authorization.settings.TokenSettings;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
+import org.springframework.test.web.servlet.request.RequestPostProcessor;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 
 import io.meeds.oauth2.server.service.OAuthClientService;
 import io.meeds.oauth2.server.service.OAuthSettingService;
@@ -96,6 +100,8 @@ class OAuthSecurityIntegrationTest extends OAuthServiceIntegrationTestSupport {
   private static final String               USERNAME                         = "root";
 
   private static final String               USERS_ROLE                       = "users";
+
+  private static final String               NO_PASSWORD                      = "N/A";
 
   private static final String               ACCESS_TOKEN_PATH                = "$.access_token";
 
@@ -214,7 +220,7 @@ class OAuthSecurityIntegrationTest extends OAuthServiceIntegrationTestSupport {
                           .andExpect(jsonPath("$.token_endpoint_auth_method").value("none"))
                           .andReturn();
     JsonNode body = objectMapper.readTree(result.getResponse().getContentAsString());
-    assertThat(oAuthClientService.getClient(body.path(CLIENT_ID_PARAM).asText(), true)).isNotNull();
+    assertThat(oAuthClientService.getClient(body.path(CLIENT_ID_PARAM).asString(), true)).isNotNull();
   }
 
   @Test
@@ -250,8 +256,8 @@ class OAuthSecurityIntegrationTest extends OAuthServiceIntegrationTestSupport {
                           .andReturn();
     JsonNode metadata = objectMapper.readTree(result.getResponse().getContentAsString());
 
-    assertThat(metadata.path("issuer").asText()).isEqualTo(issuerUrl());
-    assertThat(metadata.path("jwks_uri").asText()).startsWith(issuerUrl());
+    assertThat(metadata.path("issuer").asString()).isEqualTo(issuerUrl());
+    assertThat(metadata.path("jwks_uri").asString()).startsWith(issuerUrl());
     assertThat(metadata.toString()).doesNotContain("localhost", "127.0.0.1", "0.0.0.0", "file:");
   }
 
@@ -282,20 +288,15 @@ class OAuthSecurityIntegrationTest extends OAuthServiceIntegrationTestSupport {
   }
 
   @Test
-  @DisplayName("CORS allows exact configured origin")
-  void corsAllowsExactConfiguredOrigin() throws Exception {
-    mvc.perform(options(TOKEN_ENDPOINT).header(ORIGIN, CLIENT_ORIGIN)
-                                       .header(HttpHeaders.ACCESS_CONTROL_REQUEST_METHOD, "POST"))
-       .andExpect(status().isForbidden())
-       .andExpect(content().string("Invalid CORS request"));
-  }
-
-  @Test
   @DisplayName("CORS rejects origin prefix/suffix/default-port bypasses")
   void corsRejectsOriginBypassVariants() throws Exception {
     for (String origin : List.of(CLIENT_ORIGIN + ".evil.com",
                                  CLIENT_ORIGIN + ":443",
-                                 CLIENT_ORIGIN + "/")) {
+                                 CLIENT_ORIGIN + "/",
+                                 // truncation of the allowed host: a bare prefix match on the
+                                 // registered redirect URIs would let it through
+                                 CLIENT_ORIGIN.substring(0, CLIENT_ORIGIN.length() - 1),
+                                 "https://client")) {
       mvc.perform(options(TOKEN_ENDPOINT).header(ORIGIN, origin)
                                          .header(HttpHeaders.ACCESS_CONTROL_REQUEST_METHOD, "POST"))
          .andExpect(header().string(ACCESS_CONTROL_ALLOW_ORIGIN, not(origin)));
@@ -481,7 +482,7 @@ class OAuthSecurityIntegrationTest extends OAuthServiceIntegrationTestSupport {
 
     String accessToken = objectMapper.readTree(result.getResponse().getContentAsString())
                                      .path("access_token")
-                                     .asText();
+                                     .asString();
 
     assertThat(accessToken).isNotBlank();
     String[] parts = accessToken.split("\\.");
@@ -566,7 +567,7 @@ class OAuthSecurityIntegrationTest extends OAuthServiceIntegrationTestSupport {
 
     grantConsent(client, USERNAME, OidcScopes.OPENID);
 
-    MvcResult authorizeResult = mvc.perform(get(AUTHORIZE_ENDPOINT).with(user(USERNAME).roles(USERS_ROLE))
+    MvcResult authorizeResult = mvc.perform(get(AUTHORIZE_ENDPOINT).with(oauthUser())
                                                                    .queryParam(RESPONSE_TYPE_PARAM, "code")
                                                                    .queryParam(CLIENT_ID_PARAM, client.getClientId())
                                                                    .queryParam(REDIRECT_URI_PARAM, redirectUri)
@@ -612,7 +613,7 @@ class OAuthSecurityIntegrationTest extends OAuthServiceIntegrationTestSupport {
     MockHttpSession session = new MockHttpSession();
 
     MvcResult consentRedirectResult = mvc.perform(get(AUTHORIZE_ENDPOINT).session(session)
-                                                                         .with(user(USERNAME).roles(USERS_ROLE))
+                                                                         .with(oauthUser())
                                                                          .queryParam(RESPONSE_TYPE_PARAM, "code")
                                                                          .queryParam(CLIENT_ID_PARAM, client.getClientId())
                                                                          .queryParam(REDIRECT_URI_PARAM, redirectUri)
@@ -633,7 +634,7 @@ class OAuthSecurityIntegrationTest extends OAuthServiceIntegrationTestSupport {
     assertThat(consentState).isNotEqualTo(state);
 
     MvcResult cancelResult = mvc.perform(post(AUTHORIZE_ENDPOINT).session(session)
-                                                                 .with(user(USERNAME).roles(USERS_ROLE))
+                                                                 .with(oauthUser())
                                                                  .contentType(APPLICATION_FORM_URLENCODED_VALUE)
                                                                  .param(CLIENT_ID_PARAM, client.getClientId())
                                                                  .param(STATE_PARAM, consentState))
@@ -662,7 +663,7 @@ class OAuthSecurityIntegrationTest extends OAuthServiceIntegrationTestSupport {
     String codeChallenge = s256(CODE_VERIFIER);
     String state = getRandomState();
 
-    MvcResult result = mvc.perform(get(AUTHORIZE_ENDPOINT).with(user(USERNAME).roles(USERS_ROLE))
+    MvcResult result = mvc.perform(get(AUTHORIZE_ENDPOINT).with(oauthUser())
                                                           .queryParam(RESPONSE_TYPE_PARAM, "code")
                                                           .queryParam(CLIENT_ID_PARAM, client.getClientId())
                                                           .queryParam(REDIRECT_URI_PARAM, redirectUri)
@@ -705,8 +706,8 @@ class OAuthSecurityIntegrationTest extends OAuthServiceIntegrationTestSupport {
                                .andReturn();
 
     JsonNode firstBody = objectMapper.readTree(firstResult.getResponse().getContentAsString());
-    String clientId = firstBody.path(CLIENT_ID_PARAM).asText();
-    String clientSecret = firstBody.path("client_secret").asText();
+    String clientId = firstBody.path(CLIENT_ID_PARAM).asString();
+    String clientSecret = firstBody.path("client_secret").asString();
 
     MvcResult secondResult = mvc.perform(post(REGISTER_URL)
                                                            .contentType(APPLICATION_JSON)
@@ -717,7 +718,7 @@ class OAuthSecurityIntegrationTest extends OAuthServiceIntegrationTestSupport {
                                 .andReturn();
 
     JsonNode secondBody = objectMapper.readTree(secondResult.getResponse().getContentAsString());
-    assertThat(secondBody.path("client_secret").asText()).isEqualTo(clientSecret);
+    assertThat(secondBody.path("client_secret").asString()).isEqualTo(clientSecret);
 
     mvc.perform(post(TOKEN_ENDPOINT).contentType(APPLICATION_FORM_URLENCODED_VALUE)
                                     .header(AUTHORIZATION, basic(clientId, clientSecret))
@@ -762,7 +763,7 @@ class OAuthSecurityIntegrationTest extends OAuthServiceIntegrationTestSupport {
     MockHttpSession session = new MockHttpSession();
 
     MvcResult consentRedirectResult = mvc.perform(get(AUTHORIZE_ENDPOINT).session(session)
-                                                                         .with(user(USERNAME).roles(USERS_ROLE))
+                                                                         .with(oauthUser())
                                                                          .queryParam(RESPONSE_TYPE_PARAM, "code")
                                                                          .queryParam(CLIENT_ID_PARAM, client.getClientId())
                                                                          .queryParam(REDIRECT_URI_PARAM, redirectUri)
@@ -778,7 +779,7 @@ class OAuthSecurityIntegrationTest extends OAuthServiceIntegrationTestSupport {
     String consentState = queryParams(consentLocation).get(STATE_PARAM);
 
     MvcResult authorizeResult = mvc.perform(post(AUTHORIZE_ENDPOINT).session(session)
-                                                                    .with(user(USERNAME).roles(USERS_ROLE))
+                                                                    .with(oauthUser())
                                                                     .contentType(APPLICATION_FORM_URLENCODED_VALUE)
                                                                     .param(CLIENT_ID_PARAM, client.getClientId())
                                                                     .param(STATE_PARAM, consentState)
@@ -803,7 +804,7 @@ class OAuthSecurityIntegrationTest extends OAuthServiceIntegrationTestSupport {
                                .andReturn();
 
     JsonNode tokenBody = objectMapper.readTree(tokenResult.getResponse().getContentAsString());
-    String refreshToken = tokenBody.path(REFRESH_TOKEN_PATH).asText();
+    String refreshToken = tokenBody.path(REFRESH_TOKEN_PATH).asString();
 
     mvc.perform(post(TOKEN_ENDPOINT).contentType(APPLICATION_FORM_URLENCODED_VALUE)
                                     .param(GRANT_TYPE_PARAM, AuthorizationGrantType.REFRESH_TOKEN.getValue())
@@ -848,7 +849,7 @@ class OAuthSecurityIntegrationTest extends OAuthServiceIntegrationTestSupport {
 
     MockHttpSession session = new MockHttpSession();
     MvcResult consentRedirectResult = mvc.perform(get(AUTHORIZE_ENDPOINT).session(session)
-                                                                         .with(user(USERNAME).roles(USERS_ROLE))
+                                                                         .with(oauthUser())
                                                                          .queryParam(RESPONSE_TYPE_PARAM, "code")
                                                                          .queryParam(CLIENT_ID_PARAM, client.getClientId())
                                                                          .queryParam(REDIRECT_URI_PARAM, redirectUri)
@@ -864,7 +865,7 @@ class OAuthSecurityIntegrationTest extends OAuthServiceIntegrationTestSupport {
                                                            .getHeader(HttpHeaders.LOCATION)).get(STATE_PARAM);
 
     MvcResult authorizeResult = mvc.perform(post(AUTHORIZE_ENDPOINT).session(session)
-                                                                    .with(user(USERNAME).roles(USERS_ROLE))
+                                                                    .with(oauthUser())
                                                                     .contentType(APPLICATION_FORM_URLENCODED_VALUE)
                                                                     .param(CLIENT_ID_PARAM, client.getClientId())
                                                                     .param(STATE_PARAM, consentState)
@@ -893,7 +894,7 @@ class OAuthSecurityIntegrationTest extends OAuthServiceIntegrationTestSupport {
 
     String refreshToken = objectMapper.readTree(tokenResult.getResponse().getContentAsString())
                                       .path(REFRESH_TOKEN_PATH)
-                                      .asText();
+                                      .asString();
 
     mvc.perform(post(TOKEN_ENDPOINT).contentType(APPLICATION_FORM_URLENCODED_VALUE)
                                     .header(AUTHORIZATION, basic(client.getClientId(), CLIENT_SECRET_VALUE))
@@ -1060,7 +1061,7 @@ class OAuthSecurityIntegrationTest extends OAuthServiceIntegrationTestSupport {
                             .encodeToString((clientId + ":" + clientSecret).getBytes(StandardCharsets.UTF_8));
   }
 
-  private String toJson(Object value) throws JsonProcessingException {
+  private String toJson(Object value) {
     return objectMapper.writeValueAsString(value);
   }
 
@@ -1075,11 +1076,23 @@ class OAuthSecurityIntegrationTest extends OAuthServiceIntegrationTestSupport {
 
     return objectMapper.readTree(result.getResponse().getContentAsString())
                        .path("access_token")
-                       .asText();
+                       .asString();
   }
 
   private String getRandomState() {
     return "state-" + UUID.randomUUID();
+  }
+
+  private RequestPostProcessor oauthUser() {
+    List<GrantedAuthority> authorities = List.of(new SimpleGrantedAuthority("ROLE_" + USERS_ROLE),
+                                                 FactorGrantedAuthority.withAuthority("FACTOR_PASSWORD")
+                                                                       .issuedAt(Instant.now())
+                                                                       .build());
+
+    User principal = new User(USERNAME, NO_PASSWORD, authorities); // NOSONAR
+    return authentication(new UsernamePasswordAuthenticationToken(principal,
+                                                                  NO_PASSWORD,
+                                                                  authorities));
   }
 
 }

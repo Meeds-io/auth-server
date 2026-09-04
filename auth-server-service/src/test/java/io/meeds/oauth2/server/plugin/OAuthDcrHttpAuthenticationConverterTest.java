@@ -82,7 +82,8 @@ class OAuthDcrHttpAuthenticationConverterTest {
                                                                                                  .thenReturn(registration);
 
     OidcClientRegistrationAuthenticationToken token =
-                                                    (OidcClientRegistrationAuthenticationToken) converter.convert(request);
+                                                    (OidcClientRegistrationAuthenticationToken) converter.converter()
+                                                                                                         .convert(request);
 
     assertSame(SecurityContextHolder.getContext().getAuthentication(), token.getPrincipal());
     assertSame(registration, token.getClientRegistration());
@@ -96,7 +97,8 @@ class OAuthDcrHttpAuthenticationConverterTest {
                                                                                                  .thenThrow(new IllegalArgumentException("bad registration"));
 
     OAuth2AuthenticationException exception =
-                                            assertThrows(OAuth2AuthenticationException.class, () -> converter.convert(request));
+                                            assertThrows(OAuth2AuthenticationException.class,
+                                                         () -> converter.converter().convert(request));
 
     assertEquals(INVALID_REQUEST, exception.getError().getErrorCode());
     assertEquals(true, exception.getError().getDescription().contains("OpenID Client Registration Error"));
@@ -109,7 +111,8 @@ class OAuthDcrHttpAuthenticationConverterTest {
     request.addParameter(OAuth2ParameterNames.CLIENT_ID, CLIENT_ID);
 
     OidcClientRegistrationAuthenticationToken token =
-                                                    (OidcClientRegistrationAuthenticationToken) converter.convert(request);
+                                                    (OidcClientRegistrationAuthenticationToken) converter.converter()
+                                                                                                         .convert(request);
 
     assertSame(SecurityContextHolder.getContext().getAuthentication(), token.getPrincipal());
     assertEquals(CLIENT_ID, token.getClientId());
@@ -120,7 +123,8 @@ class OAuthDcrHttpAuthenticationConverterTest {
     MockHttpServletRequest request = new MockHttpServletRequest("GET", REGISTER_ENDPOINT);
 
     OAuth2AuthenticationException exception =
-                                            assertThrows(OAuth2AuthenticationException.class, () -> converter.convert(request));
+                                            assertThrows(OAuth2AuthenticationException.class,
+                                                         () -> converter.converter().convert(request));
 
     assertEquals(INVALID_REQUEST, exception.getError().getErrorCode());
   }
@@ -132,7 +136,8 @@ class OAuthDcrHttpAuthenticationConverterTest {
     request.addParameter(OAuth2ParameterNames.CLIENT_ID, CLIENT_ID, "client-2");
 
     OAuth2AuthenticationException exception =
-                                            assertThrows(OAuth2AuthenticationException.class, () -> converter.convert(request));
+                                            assertThrows(OAuth2AuthenticationException.class,
+                                                         () -> converter.converter().convert(request));
 
     assertEquals(INVALID_REQUEST, exception.getError().getErrorCode());
   }
@@ -144,7 +149,8 @@ class OAuthDcrHttpAuthenticationConverterTest {
     request.addParameter(OAuth2ParameterNames.CLIENT_ID, CLIENT_ID);
 
     OAuth2AuthenticationException exception =
-                                            assertThrows(OAuth2AuthenticationException.class, () -> converter.convert(request));
+                                            assertThrows(OAuth2AuthenticationException.class,
+                                                         () -> converter.converter().convert(request));
 
     assertEquals(INVALID_REQUEST, exception.getError().getErrorCode());
   }
