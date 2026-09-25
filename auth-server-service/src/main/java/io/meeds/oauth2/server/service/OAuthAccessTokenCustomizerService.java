@@ -54,9 +54,14 @@ public class OAuthAccessTokenCustomizerService implements OAuth2TokenCustomizer<
   @Autowired
   private PortalContainer                         portalContainer;
 
-  private List<OAuthAccessTokenAudienceProvider>  audienceProviders;
+  /**
+   * Replaced as a whole, never mutated in place: a token request iterates the
+   * list it read while {@link #addProvider} may run from another webapp's
+   * startup, and every audience provider must be consulted.
+   */
+  private volatile List<OAuthAccessTokenAudienceProvider>  audienceProviders;
 
-  private List<OAuthAccessTokenAuthorityProvider> authorityProviders;
+  private volatile List<OAuthAccessTokenAuthorityProvider> authorityProviders;
 
   /**
    * Ascending {@code getOrder()}, the Spring {@link org.springframework.core.Ordered}
@@ -71,22 +76,21 @@ public class OAuthAccessTokenCustomizerService implements OAuth2TokenCustomizer<
                                                                                               Comparator.comparingInt(OAuthAccessTokenAuthorityProvider::getOrder);
 
   @PostConstruct
-  public void init() {
-    this.audienceProviders = new ArrayList<>(portalContainer.getComponentInstancesOfType(OAuthAccessTokenAudienceProvider.class));
-    this.audienceProviders.sort(AUDIENCE_PROVIDER_ORDER);
-    this.authorityProviders =
-                            new ArrayList<>(portalContainer.getComponentInstancesOfType(OAuthAccessTokenAuthorityProvider.class));
-    this.authorityProviders.sort(AUTHORITY_PROVIDER_ORDER);
+  public synchronized void init() {
+    this.audienceProviders = sorted(portalContainer.getComponentInstancesOfType(OAuthAccessTokenAudienceProvider.class),
+                                    null,
+                                    AUDIENCE_PROVIDER_ORDER);
+    this.authorityProviders = sorted(portalContainer.getComponentInstancesOfType(OAuthAccessTokenAuthorityProvider.class),
+                                     null,
+                                     AUTHORITY_PROVIDER_ORDER);
   }
 
-  public void addProvider(OAuthAccessTokenAudienceProvider audienceProvider) {
-    this.audienceProviders.add(audienceProvider);
-    this.audienceProviders.sort(AUDIENCE_PROVIDER_ORDER);
+  public synchronized void addProvider(OAuthAccessTokenAudienceProvider audienceProvider) {
+    this.audienceProviders = sorted(this.audienceProviders, audienceProvider, AUDIENCE_PROVIDER_ORDER);
   }
 
-  public void addProvider(OAuthAccessTokenAuthorityProvider authorityProvider) {
-    this.authorityProviders.add(authorityProvider);
-    this.authorityProviders.sort(AUTHORITY_PROVIDER_ORDER);
+  public synchronized void addProvider(OAuthAccessTokenAuthorityProvider authorityProvider) {
+    this.authorityProviders = sorted(this.authorityProviders, authorityProvider, AUTHORITY_PROVIDER_ORDER);
   }
 
   @Override
@@ -155,6 +159,22 @@ public class OAuthAccessTokenCustomizerService implements OAuth2TokenCustomizer<
                                                               null));
     }
     return audiences;
+  }
+
+  /**
+   * @param providers  the current providers, may be null
+   * @param provider   a provider to add, may be null
+   * @param comparator the order to consult them in
+   * @return a new list holding both, sorted, so that a list already handed to
+   *         a token request is never modified
+   */
+  private static <T> List<T> sorted(List<T> providers, T provider, Comparator<T> comparator) {
+    List<T> result = providers == null ? new ArrayList<>() : new ArrayList<>(providers);
+    if (provider != null) {
+      result.add(provider);
+    }
+    result.sort(comparator);
+    return result;
   }
 
   private Set<String> computeJwtAuthorities(OAuth2TokenContext context) {

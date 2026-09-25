@@ -27,7 +27,8 @@ import org.springframework.security.oauth2.server.authorization.token.OAuth2Toke
  * Contributes the {@code authorities} claim of the access tokens the
  * authorization server issues. Providers are consulted in ascending
  * {@link #getOrder()}; the first non-empty answer becomes the claim and the
- * providers after it are not consulted.
+ * providers after it are not consulted. Refusing a token belongs to
+ * {@link OAuthAccessTokenAudienceProvider}, whose providers are all consulted.
  */
 @FunctionalInterface
 public interface OAuthAccessTokenAuthorityProvider {

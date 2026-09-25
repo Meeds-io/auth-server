@@ -22,6 +22,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.when;
 
+import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -71,8 +72,14 @@ class OAuthAccessTokenCustomizerServiceTest {
     assertEquals(List.of("zero"), customizeAccessToken().getAudience());
   }
 
+  /**
+   * Pins the extreme pair against an overflow-free comparator sorting the
+   * wrong way ({@code Integer.compare(p2, p1)}, or {@code p1 - p2} which also
+   * overflows); {@link #audienceComesFromTheLowestOrder()} is the pin against
+   * the descending subtraction, which happens to order this pair correctly.
+   */
   @Test
-  @DisplayName("HIGHEST_PRECEDENCE sorts before LOWEST_PRECEDENCE, with no overflow between them")
+  @DisplayName("HIGHEST_PRECEDENCE sorts before LOWEST_PRECEDENCE")
   void highestPrecedenceSortsBeforeLowestPrecedence() {
     initWith(List.of(audience(Ordered.LOWEST_PRECEDENCE, "last"), audience(Ordered.HIGHEST_PRECEDENCE, "first")),
              List.of());
@@ -88,6 +95,22 @@ class OAuthAccessTokenCustomizerServiceTest {
     customizerService.addProvider(audience(Ordered.HIGHEST_PRECEDENCE, "first"));
 
     assertEquals(List.of("first"), customizeAccessToken().getAudience());
+  }
+
+  @Test
+  @DisplayName("Adding a provider leaves the list a token request already holds untouched")
+  void addingAProviderLeavesTheHeldListUntouched() throws ReflectiveOperationException {
+    initWith(List.of(audience(Ordered.LOWEST_PRECEDENCE, "last")), List.of(authorities(0, "zero")));
+    List<?> heldAudienceProviders = List.copyOf(fieldValue("audienceProviders"));
+    List<?> heldAudienceProvidersReference = fieldValue("audienceProviders");
+    List<?> heldAuthorityProvidersReference = fieldValue("authorityProviders");
+
+    customizerService.addProvider(audience(Ordered.HIGHEST_PRECEDENCE, "first"));
+    customizerService.addProvider(authorities(Ordered.HIGHEST_PRECEDENCE, "first"));
+
+    assertEquals(heldAudienceProviders, heldAudienceProvidersReference);
+    assertEquals(1, heldAuthorityProvidersReference.size());
+    assertEquals(2, fieldValue("audienceProviders").size());
   }
 
   @Test
@@ -138,6 +161,12 @@ class OAuthAccessTokenCustomizerServiceTest {
     when(portalContainer.getComponentInstancesOfType(OAuthAccessTokenAudienceProvider.class)).thenReturn(new ArrayList<>(audienceProviders));
     when(portalContainer.getComponentInstancesOfType(OAuthAccessTokenAuthorityProvider.class)).thenReturn(new ArrayList<>(authorityProviders));
     customizerService.init();
+  }
+
+  private List<?> fieldValue(String name) throws ReflectiveOperationException {
+    Field field = OAuthAccessTokenCustomizerService.class.getDeclaredField(name);
+    field.setAccessible(true);
+    return (List<?>) field.get(customizerService);
   }
 
   private OAuth2TokenClaimsSet customizeAccessToken() {
