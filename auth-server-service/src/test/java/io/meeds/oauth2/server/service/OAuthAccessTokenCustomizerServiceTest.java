@@ -98,6 +98,16 @@ class OAuthAccessTokenCustomizerServiceTest {
   }
 
   @Test
+  @DisplayName("An authority provider added after startup takes its place in the order")
+  void addedAuthorityProviderTakesItsPlaceInTheOrder() {
+    initWith(List.of(audience(0, "aud")), List.of(authorities(Ordered.LOWEST_PRECEDENCE, "last")));
+
+    customizerService.addProvider(authorities(Ordered.HIGHEST_PRECEDENCE, "first"));
+
+    assertEquals(Set.of("first"), Set.copyOf(customizeAccessToken().<List<String>> getClaim("authorities")));
+  }
+
+  @Test
   @DisplayName("Adding a provider leaves the list a token request already holds untouched")
   void addingAProviderLeavesTheHeldListUntouched() throws ReflectiveOperationException {
     initWith(List.of(audience(Ordered.LOWEST_PRECEDENCE, "last")), List.of(authorities(0, "zero")));
