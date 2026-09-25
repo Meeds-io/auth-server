@@ -55,13 +55,14 @@ public class OAuthAccessTokenCustomizerService implements OAuth2TokenCustomizer<
   private PortalContainer                         portalContainer;
 
   /**
-   * Replaced as a whole, never mutated in place: a token request iterates the
-   * list it read while {@link #addProvider} may run from another webapp's
-   * startup, and every audience provider must be consulted.
+   * Replaced as a whole, never mutated in place, and read and written under
+   * this service's monitor: a token request iterates the list it read while
+   * {@link #addProvider} may run from another webapp's startup, and every
+   * audience provider must be consulted.
    */
-  private volatile List<OAuthAccessTokenAudienceProvider>  audienceProviders;
+  private List<OAuthAccessTokenAudienceProvider>  audienceProviders;
 
-  private volatile List<OAuthAccessTokenAuthorityProvider> authorityProviders;
+  private List<OAuthAccessTokenAuthorityProvider> authorityProviders;
 
   /**
    * Ascending {@code getOrder()}, the Spring {@link org.springframework.core.Ordered}
@@ -127,10 +128,7 @@ public class OAuthAccessTokenCustomizerService implements OAuth2TokenCustomizer<
     if (roles != null) {
       claimFn.apply("authorities", new HashSet<>(roles));
     }
-    List<String> audiences = computeJwtAudiences(tokenContext);
-    if (audiences != null) {
-      claimFn.apply(OAuth2TokenClaimNames.AUD, new ArrayList<>(audiences));
-    }
+    claimFn.apply(OAuth2TokenClaimNames.AUD, new ArrayList<>(computeJwtAudiences(tokenContext)));
   }
 
   /**
@@ -147,7 +145,7 @@ public class OAuthAccessTokenCustomizerService implements OAuth2TokenCustomizer<
    */
   private List<String> computeJwtAudiences(OAuth2TokenContext context) {
     List<String> audiences = null;
-    for (OAuthAccessTokenAudienceProvider audienceProvider : audienceProviders) {
+    for (OAuthAccessTokenAudienceProvider audienceProvider : getAudienceProviders()) {
       List<String> providedAudiences = audienceProvider.provideAudiences(context);
       if (audiences == null && CollectionUtils.isNotEmpty(providedAudiences)) {
         audiences = providedAudiences;
@@ -177,12 +175,28 @@ public class OAuthAccessTokenCustomizerService implements OAuth2TokenCustomizer<
     return result;
   }
 
+  /**
+   * @return the current audience providers, a list never modified once
+   *         published
+   */
+  private synchronized List<OAuthAccessTokenAudienceProvider> getAudienceProviders() {
+    return audienceProviders;
+  }
+
+  /**
+   * @return the current authority providers, a list never modified once
+   *         published
+   */
+  private synchronized List<OAuthAccessTokenAuthorityProvider> getAuthorityProviders() {
+    return authorityProviders;
+  }
+
   private Set<String> computeJwtAuthorities(OAuth2TokenContext context) {
-    return authorityProviders.stream()
-                             .map(p -> p.provideAuthorities(context))
-                             .filter(CollectionUtils::isNotEmpty)
-                             .findFirst()
-                             .orElse(null);
+    return getAuthorityProviders().stream()
+                                  .map(p -> p.provideAuthorities(context))
+                                  .filter(CollectionUtils::isNotEmpty)
+                                  .findFirst()
+                                  .orElse(null);
   }
 
 }
