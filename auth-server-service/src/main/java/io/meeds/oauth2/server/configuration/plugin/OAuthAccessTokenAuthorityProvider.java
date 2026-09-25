@@ -23,11 +23,26 @@ import java.util.Set;
 import org.springframework.core.Ordered;
 import org.springframework.security.oauth2.server.authorization.token.OAuth2TokenContext;
 
+/**
+ * Contributes the {@code authorities} claim of the access tokens the
+ * authorization server issues. Providers are consulted in ascending
+ * {@link #getOrder()}; the first non-empty answer becomes the claim and the
+ * providers after it are not consulted.
+ */
 @FunctionalInterface
 public interface OAuthAccessTokenAuthorityProvider {
 
+  /**
+   * @param context the access token being issued
+   * @return the authorities of the token, or null or empty to let another
+   *         provider answer
+   */
   Set<String> provideAuthorities(OAuth2TokenContext context);
 
+  /**
+   * @return this provider's position, lower values consulted first — the
+   *         Spring {@link Ordered} convention
+   */
   default int getOrder() {
     return Ordered.HIGHEST_PRECEDENCE;
   }

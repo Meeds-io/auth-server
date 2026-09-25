@@ -21,6 +21,7 @@ package io.meeds.oauth2.server.service;
 import static io.meeds.oauth2.server.util.EntityMapper.CLIENT_SERVICE_SETTING;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -57,23 +58,35 @@ public class OAuthAccessTokenCustomizerService implements OAuth2TokenCustomizer<
 
   private List<OAuthAccessTokenAuthorityProvider> authorityProviders;
 
+  /**
+   * Ascending {@code getOrder()}, the Spring {@link org.springframework.core.Ordered}
+   * convention: {@code HIGHEST_PRECEDENCE} is consulted first. Compared with
+   * {@link Integer#compare}, never by subtraction, which overflows between
+   * {@code HIGHEST_PRECEDENCE} and {@code LOWEST_PRECEDENCE}.
+   */
+  private static final Comparator<OAuthAccessTokenAudienceProvider>  AUDIENCE_PROVIDER_ORDER  =
+                                                                                              Comparator.comparingInt(OAuthAccessTokenAudienceProvider::getOrder);
+
+  private static final Comparator<OAuthAccessTokenAuthorityProvider> AUTHORITY_PROVIDER_ORDER =
+                                                                                              Comparator.comparingInt(OAuthAccessTokenAuthorityProvider::getOrder);
+
   @PostConstruct
   public void init() {
     this.audienceProviders = new ArrayList<>(portalContainer.getComponentInstancesOfType(OAuthAccessTokenAudienceProvider.class));
-    this.audienceProviders.sort((p1, p2) -> p2.getOrder() - p1.getOrder());
+    this.audienceProviders.sort(AUDIENCE_PROVIDER_ORDER);
     this.authorityProviders =
                             new ArrayList<>(portalContainer.getComponentInstancesOfType(OAuthAccessTokenAuthorityProvider.class));
-    this.authorityProviders.sort((p1, p2) -> p2.getOrder() - p1.getOrder());
+    this.authorityProviders.sort(AUTHORITY_PROVIDER_ORDER);
   }
 
   public void addProvider(OAuthAccessTokenAudienceProvider audienceProvider) {
     this.audienceProviders.add(audienceProvider);
-    this.audienceProviders.sort((p1, p2) -> p2.getOrder() - p1.getOrder());
+    this.audienceProviders.sort(AUDIENCE_PROVIDER_ORDER);
   }
 
   public void addProvider(OAuthAccessTokenAuthorityProvider authorityProvider) {
     this.authorityProviders.add(authorityProvider);
-    this.authorityProviders.sort((p1, p2) -> p2.getOrder() - p1.getOrder());
+    this.authorityProviders.sort(AUTHORITY_PROVIDER_ORDER);
   }
 
   @Override
@@ -116,14 +129,32 @@ public class OAuthAccessTokenCustomizerService implements OAuth2TokenCustomizer<
     }
   }
 
+  /**
+   * Resolves the {@code aud} claim: the first non-empty answer in provider
+   * order. Every provider is consulted, including after that answer, because a
+   * provider refuses the token by throwing {@link OAuth2AuthenticationException}
+   * and that refusal must hold wherever the provider sorts — a short-circuit
+   * would let whichever provider answers first silence every refusal behind it.
+   *
+   * @param context the access token being issued
+   * @return the audiences of the token, never empty
+   * @throws OAuth2AuthenticationException raised by a provider refusing the
+   *           token, or {@code invalid_request} when no provider answers
+   */
   private List<String> computeJwtAudiences(OAuth2TokenContext context) {
-    return audienceProviders.stream()
-                            .map(p -> p.provideAudiences(context))
-                            .filter(CollectionUtils::isNotEmpty)
-                            .findFirst()
-                            .orElseThrow(() -> new OAuth2AuthenticationException(new OAuth2Error(OAuth2ErrorCodes.INVALID_REQUEST,
-                                                                                                 "No valid audience provided",
-                                                                                                 null)));
+    List<String> audiences = null;
+    for (OAuthAccessTokenAudienceProvider audienceProvider : audienceProviders) {
+      List<String> providedAudiences = audienceProvider.provideAudiences(context);
+      if (audiences == null && CollectionUtils.isNotEmpty(providedAudiences)) {
+        audiences = providedAudiences;
+      }
+    }
+    if (audiences == null) {
+      throw new OAuth2AuthenticationException(new OAuth2Error(OAuth2ErrorCodes.INVALID_REQUEST,
+                                                              "No valid audience provided",
+                                                              null));
+    }
+    return audiences;
   }
 
   private Set<String> computeJwtAuthorities(OAuth2TokenContext context) {
