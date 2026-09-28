@@ -23,11 +23,30 @@ import java.util.List;
 import org.springframework.core.Ordered;
 import org.springframework.security.oauth2.server.authorization.token.OAuth2TokenContext;
 
+/**
+ * Contributes the {@code aud} claim of the access tokens the authorization
+ * server issues. Providers are consulted in ascending {@link #getOrder()}; the
+ * first non-empty answer becomes the claim.
+ */
 @FunctionalInterface
 public interface OAuthAccessTokenAudienceProvider {
 
+  /**
+   * @param context the access token being issued
+   * @return the audiences of the token, or null or empty to let another
+   *         provider answer
+   * @throws org.springframework.security.oauth2.core.OAuth2AuthenticationException
+   *           to refuse the token outright. Every provider is consulted for
+   *           every token, so a refusal holds whatever the provider's order and
+   *           whether or not another provider has already answered.
+   */
   List<String> provideAudiences(OAuth2TokenContext context);
 
+  /**
+   * @return this provider's position, lower values consulted first — the
+   *         Spring {@link Ordered} convention. It decides which answer becomes
+   *         the claim, never whether a refusal is heard.
+   */
   default int getOrder() {
     return Ordered.HIGHEST_PRECEDENCE;
   }

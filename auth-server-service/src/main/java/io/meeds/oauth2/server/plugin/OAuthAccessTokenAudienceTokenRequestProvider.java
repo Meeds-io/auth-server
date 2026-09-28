@@ -52,7 +52,9 @@ public class OAuthAccessTokenAudienceTokenRequestProvider implements OAuthAccess
           if (oAuthSettingService.getAllowedAudiences().contains(resource)) {
             return List.of(resource);
           } else {
-            log.warn("OAuth Resource {} isn't allowed as Audience", resource);
+            // debug: the resource is client-supplied and this runs on every
+            // access token, refreshes included - a refused value is normal flow
+            log.debug("OAuth Resource {} isn't allowed as Audience", resource);
           }
         }
       }

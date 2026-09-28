@@ -21,6 +21,7 @@ package io.meeds.oauth2.server.service;
 import static io.meeds.oauth2.server.util.EntityMapper.CLIENT_SERVICE_SETTING;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -53,27 +54,44 @@ public class OAuthAccessTokenCustomizerService implements OAuth2TokenCustomizer<
   @Autowired
   private PortalContainer                         portalContainer;
 
+  /**
+   * Replaced as a whole, never mutated in place, and read and written under
+   * this service's monitor: a token request iterates the list it read while
+   * {@link #addProvider} may run from another webapp's startup, and every
+   * audience provider must be consulted.
+   */
   private List<OAuthAccessTokenAudienceProvider>  audienceProviders;
 
   private List<OAuthAccessTokenAuthorityProvider> authorityProviders;
 
+  /**
+   * Ascending {@code getOrder()}, the Spring {@link org.springframework.core.Ordered}
+   * convention: {@code HIGHEST_PRECEDENCE} is consulted first. Compared with
+   * {@link Integer#compare}, never by subtraction, which overflows between
+   * {@code HIGHEST_PRECEDENCE} and {@code LOWEST_PRECEDENCE}.
+   */
+  private static final Comparator<OAuthAccessTokenAudienceProvider>  AUDIENCE_PROVIDER_ORDER  =
+                                                                                              Comparator.comparingInt(OAuthAccessTokenAudienceProvider::getOrder);
+
+  private static final Comparator<OAuthAccessTokenAuthorityProvider> AUTHORITY_PROVIDER_ORDER =
+                                                                                              Comparator.comparingInt(OAuthAccessTokenAuthorityProvider::getOrder);
+
   @PostConstruct
-  public void init() {
-    this.audienceProviders = new ArrayList<>(portalContainer.getComponentInstancesOfType(OAuthAccessTokenAudienceProvider.class));
-    this.audienceProviders.sort((p1, p2) -> p2.getOrder() - p1.getOrder());
-    this.authorityProviders =
-                            new ArrayList<>(portalContainer.getComponentInstancesOfType(OAuthAccessTokenAuthorityProvider.class));
-    this.authorityProviders.sort((p1, p2) -> p2.getOrder() - p1.getOrder());
+  public synchronized void init() {
+    this.audienceProviders = sorted(portalContainer.getComponentInstancesOfType(OAuthAccessTokenAudienceProvider.class),
+                                    null,
+                                    AUDIENCE_PROVIDER_ORDER);
+    this.authorityProviders = sorted(portalContainer.getComponentInstancesOfType(OAuthAccessTokenAuthorityProvider.class),
+                                     null,
+                                     AUTHORITY_PROVIDER_ORDER);
   }
 
-  public void addProvider(OAuthAccessTokenAudienceProvider audienceProvider) {
-    this.audienceProviders.add(audienceProvider);
-    this.audienceProviders.sort((p1, p2) -> p2.getOrder() - p1.getOrder());
+  public synchronized void addProvider(OAuthAccessTokenAudienceProvider audienceProvider) {
+    this.audienceProviders = sorted(this.audienceProviders, audienceProvider, AUDIENCE_PROVIDER_ORDER);
   }
 
-  public void addProvider(OAuthAccessTokenAuthorityProvider authorityProvider) {
-    this.authorityProviders.add(authorityProvider);
-    this.authorityProviders.sort((p1, p2) -> p2.getOrder() - p1.getOrder());
+  public synchronized void addProvider(OAuthAccessTokenAuthorityProvider authorityProvider) {
+    this.authorityProviders = sorted(this.authorityProviders, authorityProvider, AUTHORITY_PROVIDER_ORDER);
   }
 
   @Override
@@ -110,28 +128,75 @@ public class OAuthAccessTokenCustomizerService implements OAuth2TokenCustomizer<
     if (roles != null) {
       claimFn.apply("authorities", new HashSet<>(roles));
     }
-    List<String> audiences = computeJwtAudiences(tokenContext);
-    if (audiences != null) {
-      claimFn.apply(OAuth2TokenClaimNames.AUD, new ArrayList<>(audiences));
-    }
+    claimFn.apply(OAuth2TokenClaimNames.AUD, new ArrayList<>(computeJwtAudiences(tokenContext)));
   }
 
+  /**
+   * Resolves the {@code aud} claim: the first non-empty answer in provider
+   * order. Every provider is consulted, including after that answer, because a
+   * provider refuses the token by throwing {@link OAuth2AuthenticationException}
+   * and that refusal must hold wherever the provider sorts — a short-circuit
+   * would let whichever provider answers first silence every refusal behind it.
+   *
+   * @param context the access token being issued
+   * @return the audiences of the token, never empty
+   * @throws OAuth2AuthenticationException raised by a provider refusing the
+   *           token, or {@code invalid_request} when no provider answers
+   */
   private List<String> computeJwtAudiences(OAuth2TokenContext context) {
-    return audienceProviders.stream()
-                            .map(p -> p.provideAudiences(context))
-                            .filter(CollectionUtils::isNotEmpty)
-                            .findFirst()
-                            .orElseThrow(() -> new OAuth2AuthenticationException(new OAuth2Error(OAuth2ErrorCodes.INVALID_REQUEST,
-                                                                                                 "No valid audience provided",
-                                                                                                 null)));
+    List<String> audiences = null;
+    for (OAuthAccessTokenAudienceProvider audienceProvider : getAudienceProviders()) {
+      List<String> providedAudiences = audienceProvider.provideAudiences(context);
+      if (audiences == null && CollectionUtils.isNotEmpty(providedAudiences)) {
+        audiences = providedAudiences;
+      }
+    }
+    if (audiences == null) {
+      throw new OAuth2AuthenticationException(new OAuth2Error(OAuth2ErrorCodes.INVALID_REQUEST,
+                                                              "No valid audience provided",
+                                                              null));
+    }
+    return audiences;
+  }
+
+  /**
+   * @param providers  the current providers, may be null
+   * @param provider   a provider to add, may be null
+   * @param comparator the order to consult them in
+   * @return a new list holding both, sorted, so that a list already handed to
+   *         a token request is never modified
+   */
+  private static <T> List<T> sorted(List<T> providers, T provider, Comparator<T> comparator) {
+    List<T> result = providers == null ? new ArrayList<>() : new ArrayList<>(providers);
+    if (provider != null) {
+      result.add(provider);
+    }
+    result.sort(comparator);
+    return result;
+  }
+
+  /**
+   * @return the current audience providers, a list never modified once
+   *         published
+   */
+  private synchronized List<OAuthAccessTokenAudienceProvider> getAudienceProviders() {
+    return audienceProviders;
+  }
+
+  /**
+   * @return the current authority providers, a list never modified once
+   *         published
+   */
+  private synchronized List<OAuthAccessTokenAuthorityProvider> getAuthorityProviders() {
+    return authorityProviders;
   }
 
   private Set<String> computeJwtAuthorities(OAuth2TokenContext context) {
-    return authorityProviders.stream()
-                             .map(p -> p.provideAuthorities(context))
-                             .filter(CollectionUtils::isNotEmpty)
-                             .findFirst()
-                             .orElse(null);
+    return getAuthorityProviders().stream()
+                                  .map(p -> p.provideAuthorities(context))
+                                  .filter(CollectionUtils::isNotEmpty)
+                                  .findFirst()
+                                  .orElse(null);
   }
 
 }
