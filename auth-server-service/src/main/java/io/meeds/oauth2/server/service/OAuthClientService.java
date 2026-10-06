@@ -192,14 +192,12 @@ public class OAuthClientService {
       if (!selfRegisterEnabled) {
         throw new IllegalStateException("[DCR / CIMD] Feature is disabled");
       }
-      RegisteredClient clientToSave = normalizeClient(clientId, publicClient, existingClient, true);
-
       // Only allowed Redirect URIs will be able to self register as public
-      // client Validation is necessary only when modification will made on
-      // the
-      // store
-      openRegistrationValidators.forEach(r -> r.validate(clientToSave));
-      // A refused client is never stored
+      // client. The request is checked before normalizeClient, which fetches
+      // its logo, so that a refused client is neither fetched from nor stored
+      openRegistrationValidators.forEach(r -> r.validate(publicClient));
+      checkSelfRegisteredClientGrantTypes(publicClient);
+      RegisteredClient clientToSave = normalizeClient(clientId, publicClient, existingClient, true);
       checkSelfRegisteredClient(clientToSave);
 
       // Allow creation Only on Self-Registration
@@ -456,13 +454,19 @@ public class OAuthClientService {
   }
 
   private void checkSelfRegisteredClient(RegisteredClient client) {
+    checkSelfRegisteredClientGrantTypes(client);
+    if (!client.getClientSettings().isRequireAuthorizationConsent()
+        || !client.getClientSettings().isRequireProofKey()) {
+      throw new IllegalStateException(SELF_REGISTERED_CLIENT_NOT_ENABLED_MSG);
+    }
+  }
+
+  private void checkSelfRegisteredClientGrantTypes(RegisteredClient client) {
     if (!client.getAuthorizationGrantTypes().contains(AuthorizationGrantType.AUTHORIZATION_CODE)
         || client.getAuthorizationGrantTypes().contains(AuthorizationGrantType.JWT_BEARER)
         || (client.getAuthorizationGrantTypes().contains(AuthorizationGrantType.CLIENT_CREDENTIALS)
             && !isCimdClient(client)
-            && !isDcrClient(client))
-        || !client.getClientSettings().isRequireAuthorizationConsent()
-        || !client.getClientSettings().isRequireProofKey()) {
+            && !isDcrClient(client))) {
       throw new IllegalStateException(SELF_REGISTERED_CLIENT_NOT_ENABLED_MSG);
     }
   }

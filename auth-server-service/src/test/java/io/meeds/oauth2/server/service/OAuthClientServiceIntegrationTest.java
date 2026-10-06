@@ -21,9 +21,14 @@ package io.meeds.oauth2.server.service;
 import static io.meeds.oauth2.server.util.EntityMapper.CLIENT_ENABLED_SETTING;
 import static io.meeds.oauth2.server.util.EntityMapper.CLIENT_IS_CIMD_SETTING;
 import static io.meeds.oauth2.server.util.EntityMapper.CLIENT_IS_DCR_SETTING;
+import static io.meeds.oauth2.server.util.EntityMapper.CLIENT_LOGO_URI_SETTING;
 import static io.meeds.oauth2.server.util.EntityMapper.CLIENT_SYSTEM_SETTING;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.CALLS_REAL_METHODS;
+import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.never;
 
 import java.time.Duration;
 import java.util.Set;
@@ -32,6 +37,7 @@ import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.mockito.MockedStatic;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.oauth2.core.AuthorizationGrantType;
 import org.springframework.security.oauth2.core.ClientAuthenticationMethod;
@@ -123,7 +129,7 @@ class OAuthClientServiceIntegrationTest extends OAuthServiceIntegrationTestSuppo
 
   @Test
   @SneakyThrows
-  void registerNormalizesPublicClientAndReusesSameRedirectUriClient() {
+  void registerNormalizesPublicClientAndIgnoresChangesOnReRegistration() {
     String redirectUri = "https://client.com/callback/dcr-" + UUID.randomUUID();
     RegisteredClient request = publicClient("https://client.com/client-metadata-" + UUID.randomUUID(), redirectUri);
 
@@ -182,6 +188,46 @@ class OAuthClientServiceIntegrationTest extends OAuthServiceIntegrationTestSuppo
     assertThat(second.getClientId()).isEqualTo(first.getClientId());
   }
 
+  @Test
+  @SneakyThrows
+  void registerDoesNotMergeADcrClientIntoAnAdminCreatedClientSharingItsRedirectUri() {
+    String redirectUri = "https://client.com/callback/shared-" + UUID.randomUUID();
+    clientService.createClient(publicClient("admin-" + UUID.randomUUID(), redirectUri));
+    String dcrClientId = "dcr-" + UUID.randomUUID();
+
+    RegisteredClient dcrClient = clientService.register(dcrClient(dcrClientId, redirectUri, ClientAuthenticationMethod.NONE));
+
+    assertThat(dcrClient.getClientId()).isEqualTo(dcrClientId);
+  }
+
+  /**
+   * normalizeClient fetches the logo of the client it normalizes; a client
+   * refused for its grant types must be refused before it.
+   */
+  @Test
+  void registerDoesNotFetchTheLogoOfAClientRefusedForItsGrantTypes() {
+    RegisteredClient request = withLogo(RegisteredClient.from(dcrClient("dcr-" + UUID.randomUUID(),
+                                                                        "https://client.com/callback/refused-" + UUID.randomUUID(),
+                                                                        ClientAuthenticationMethod.NONE))
+                                                        .authorizationGrantType(AuthorizationGrantType.JWT_BEARER)
+                                                        .build());
+
+    assertRefusedWithoutFetchingTheLogo(request);
+  }
+
+  /**
+   * normalizeClient fetches the logo of the client it normalizes; a client
+   * refused by the redirect URI allow-list must be refused before it.
+   */
+  @Test
+  void registerDoesNotFetchTheLogoOfAClientRefusedByTheRedirectUriAllowList() {
+    RegisteredClient request = withLogo(dcrClient("dcr-" + UUID.randomUUID(),
+                                                  "https://not-allowed.com/callback/" + UUID.randomUUID(),
+                                                  ClientAuthenticationMethod.NONE));
+
+    assertRefusedWithoutFetchingTheLogo(request);
+  }
+
   /**
    * A DCR request reaches register with the grant types it asked for
    * (OAuthDcrAuthenticationProvider), the JWT Bearer grant included.
@@ -211,6 +257,22 @@ class OAuthClientServiceIntegrationTest extends OAuthServiceIntegrationTestSuppo
 
     assertThat(clientService.getClient(clientId, false)).isNull();
     assertThat(clientService.getClient(clientId, true)).isNotNull();
+  }
+
+  private void assertRefusedWithoutFetchingTheLogo(RegisteredClient request) {
+    try (MockedStatic<Utils> utils = mockStatic(Utils.class, CALLS_REAL_METHODS)) {
+      assertThatThrownBy(() -> clientService.register(request)).isInstanceOf(IllegalStateException.class);
+      utils.verify(() -> Utils.validateUrl(anyString()), never());
+    }
+    assertThat(clientService.getClient(request.getClientId(), true)).isNull();
+  }
+
+  private RegisteredClient withLogo(RegisteredClient client) {
+    return RegisteredClient.from(client)
+                           .clientSettings(ClientSettings.withSettings(client.getClientSettings().getSettings())
+                                                         .setting(CLIENT_LOGO_URI_SETTING, "https://logo.client.com/logo.png")
+                                                         .build())
+                           .build();
   }
 
   private RegisteredClient dcrClient(String clientId, String redirectUri, ClientAuthenticationMethod authenticationMethod) {
