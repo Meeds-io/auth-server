@@ -82,8 +82,9 @@ class OAuthTokenAndConsentServiceIntegrationTest extends OAuthServiceIntegration
 
   /**
    * A CIMD client id is its metadata document URL, stored up to 255 characters
-   * with its client: its tokens and consents reference it at that length. Run
-   * on the test suite's HSQLDB only; MySQL and PostgreSQL were checked apart.
+   * with its client: its tokens and consents reference it at that length.
+   * Runs on HSQLDB only: the column type and nullability on MySQL and
+   * PostgreSQL need a real database run.
    */
   @Test
   void tokenAndConsentAreStoredForAClientIdLongerThanOneHundredCharacters() {

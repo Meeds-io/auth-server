@@ -257,8 +257,8 @@
 
   <!-- A registered client id is stored up to 255 characters (AUTH_SERVER_CLIENTS), a CIMD client id being
        its metadata document URL: the tables referencing it hold as much. MySQL's MODIFY COLUMN drops a
-       NOT NULL that the new type does not restate. -->
-  <changeSet author="authserver" id="1.0.0-12-EXO-90982" dbms="mysql,mariadb">
+       NOT NULL that the new type does not restate. Only the supported databases are listed. -->
+  <changeSet author="authserver" id="1.0.0-exo-90982-01" dbms="mysql,mariadb">
     <modifyDataType tableName="AUTH_SERVER_AUTHORIZATION" columnName="REGISTERED_CLIENT_ID" newDataType="VARCHAR(255) NOT NULL" />
     <modifyDataType tableName="AUTH_SERVER_AUTHORIZATION_CONSENT" columnName="REGISTERED_CLIENT_ID" newDataType="VARCHAR(255) NOT NULL" />
     <rollback>
@@ -267,7 +267,7 @@
     </rollback>
   </changeSet>
 
-  <changeSet author="authserver" id="1.0.0-13-EXO-90982" dbms="!mysql,!mariadb">
+  <changeSet author="authserver" id="1.0.0-exo-90982-02" dbms="postgresql,hsqldb">
     <modifyDataType tableName="AUTH_SERVER_AUTHORIZATION" columnName="REGISTERED_CLIENT_ID" newDataType="VARCHAR(255)" />
     <modifyDataType tableName="AUTH_SERVER_AUTHORIZATION_CONSENT" columnName="REGISTERED_CLIENT_ID" newDataType="VARCHAR(255)" />
     <rollback>
