@@ -32,6 +32,8 @@ import org.springframework.security.oauth2.core.ClientAuthenticationMethod;
 import org.springframework.security.oauth2.core.OAuth2AccessToken;
 import org.springframework.security.oauth2.core.oidc.OidcScopes;
 import org.springframework.security.oauth2.server.authorization.OAuth2Authorization;
+import org.springframework.security.oauth2.server.authorization.OAuth2AuthorizationConsent;
+import org.springframework.security.oauth2.server.authorization.OAuth2AuthorizationConsentService;
 import org.springframework.security.oauth2.server.authorization.OAuth2TokenType;
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClient;
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClientRepository;
@@ -56,6 +58,9 @@ class OAuthTokenAndConsentServiceIntegrationTest extends OAuthServiceIntegration
   @Autowired
   private RegisteredClientRepository                                                          registeredClientRepository;
 
+  @Autowired
+  private OAuth2AuthorizationConsentService                                                   authorizationConsentService;
+
   @Test
   void tokenLifecycleCanSaveFindRemoveAndCleanExpiredTokens() {
     String clientId = "token-client-" + UUID.randomUUID();
@@ -73,6 +78,26 @@ class OAuthTokenAndConsentServiceIntegrationTest extends OAuthServiceIntegration
 
     assertThat(tokenService.findById(authorization.getId())).isNull();
     assertThat(tokenService.cleanExpiredTokens()).isGreaterThanOrEqualTo(0);
+  }
+
+  /**
+   * A CIMD client id is its metadata document URL, stored up to 255 characters
+   * with its client: its tokens and consents reference it at that length. Run
+   * on the test suite's HSQLDB only; MySQL and PostgreSQL were checked apart.
+   */
+  @Test
+  void tokenAndConsentAreStoredForAClientIdLongerThanOneHundredCharacters() {
+    String clientId = "https://client.com/client-metadata/" + UUID.randomUUID() + "/" + "a".repeat(130);
+    RegisteredClient client = RegisteredClient.from(client(clientId)).id(clientId).build();
+    registeredClientRepository.save(client);
+
+    OAuth2Authorization authorization = authorization(client, "root", "token-" + UUID.randomUUID());
+    authorizationService.save(authorization);
+    authorizationConsentService.save(OAuth2AuthorizationConsent.withId(clientId, "root").scope(OidcScopes.OPENID).build());
+
+    assertThat(clientId).hasSizeGreaterThan(100).hasSizeLessThanOrEqualTo(255);
+    assertThat(tokenService.findById(authorization.getId())).isNotNull();
+    assertThat(authorizationConsentService.findById(clientId, "root")).isNotNull();
   }
 
   @Test
