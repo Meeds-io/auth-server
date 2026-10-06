@@ -96,6 +96,8 @@ public class OAuthClientService {
 
   private static final String     SCOPES_MANDATORY_MSG        = "Client Scopes is mandatory";
 
+  private static final String     SELF_REGISTERED_CLIENT_NOT_ENABLED_MSG = "[DCR / CIMD] Self Registered Client not enabled";
+
   private static final int        REGISTER_RATE_SECONDS_COUNT = 60;
 
   @Autowired
@@ -197,6 +199,8 @@ public class OAuthClientService {
       // the
       // store
       openRegistrationValidators.forEach(r -> r.validate(clientToSave));
+      // A refused client is never stored
+      checkSelfRegisteredClient(clientToSave);
 
       // Allow creation Only on Self-Registration
       saveClient(clientToSave);
@@ -219,16 +223,10 @@ public class OAuthClientService {
                                          s));
     }
     RegisteredClient client = getClient(clientId, false);
-    if (client == null
-        || !client.getAuthorizationGrantTypes().contains(AuthorizationGrantType.AUTHORIZATION_CODE)
-        || client.getAuthorizationGrantTypes().contains(AuthorizationGrantType.JWT_BEARER)
-        || (client.getAuthorizationGrantTypes().contains(AuthorizationGrantType.CLIENT_CREDENTIALS)
-            && !Objects.equals(client.getClientSettings().getSetting(CLIENT_IS_CIMD_SETTING), true)
-            && !Objects.equals(client.getClientSettings().getSetting(CLIENT_IS_DCR_SETTING), true))
-        || !client.getClientSettings().isRequireAuthorizationConsent()
-        || !client.getClientSettings().isRequireProofKey()) {
-      throw new IllegalStateException("[DCR / CIMD] Self Registered Client not enabled");
+    if (client == null) {
+      throw new IllegalStateException(SELF_REGISTERED_CLIENT_NOT_ENABLED_MSG);
     }
+    checkSelfRegisteredClient(client);
     return client;
   }
 
@@ -435,7 +433,15 @@ public class OAuthClientService {
   }
 
   private String computePublicClientId(RegisteredClient publicClient) {
+    if (isCimdClient(publicClient)) {
+      // A CIMD client is identified by its metadata document URL, which the
+      // client presents as client_id on every request
+      return publicClient.getClientId();
+    }
+    // A DCR client gets back the registration it is merged into, so it is
+    // merged only into another DCR client
     RegisteredClient existingClient = getClients(false).stream()
+                                                       .filter(this::isDcrClient)
                                                        .filter(c -> publicClient.getRedirectUris()
                                                                                 .stream()
                                                                                 .allMatch(u -> c.getRedirectUris()
@@ -447,6 +453,26 @@ public class OAuthClientService {
     } else {
       return existingClient.getClientId();
     }
+  }
+
+  private void checkSelfRegisteredClient(RegisteredClient client) {
+    if (!client.getAuthorizationGrantTypes().contains(AuthorizationGrantType.AUTHORIZATION_CODE)
+        || client.getAuthorizationGrantTypes().contains(AuthorizationGrantType.JWT_BEARER)
+        || (client.getAuthorizationGrantTypes().contains(AuthorizationGrantType.CLIENT_CREDENTIALS)
+            && !isCimdClient(client)
+            && !isDcrClient(client))
+        || !client.getClientSettings().isRequireAuthorizationConsent()
+        || !client.getClientSettings().isRequireProofKey()) {
+      throw new IllegalStateException(SELF_REGISTERED_CLIENT_NOT_ENABLED_MSG);
+    }
+  }
+
+  private boolean isCimdClient(RegisteredClient client) {
+    return Objects.equals(client.getClientSettings().getSetting(CLIENT_IS_CIMD_SETTING), true);
+  }
+
+  private boolean isDcrClient(RegisteredClient client) {
+    return Objects.equals(client.getClientSettings().getSetting(CLIENT_IS_DCR_SETTING), true);
   }
 
   private RegisteredClient normalizeClient(String clientId,

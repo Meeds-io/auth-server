@@ -19,6 +19,8 @@
 package io.meeds.oauth2.server.service;
 
 import static io.meeds.oauth2.server.util.EntityMapper.CLIENT_ENABLED_SETTING;
+import static io.meeds.oauth2.server.util.EntityMapper.CLIENT_IS_CIMD_SETTING;
+import static io.meeds.oauth2.server.util.EntityMapper.CLIENT_IS_DCR_SETTING;
 import static io.meeds.oauth2.server.util.EntityMapper.CLIENT_SYSTEM_SETTING;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -37,6 +39,8 @@ import org.springframework.security.oauth2.core.oidc.OidcScopes;
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClient;
 import org.springframework.security.oauth2.server.authorization.settings.ClientSettings;
 import org.springframework.security.oauth2.server.authorization.settings.TokenSettings;
+import org.springframework.test.util.AopTestUtils;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import org.exoplatform.commons.ObjectAlreadyExistsException;
 import org.exoplatform.commons.exception.ObjectNotFoundException;
@@ -62,6 +66,10 @@ class OAuthClientServiceIntegrationTest extends OAuthServiceIntegrationTestSuppo
     if (!settingService.getAllowedRedirectUris().contains(prefix)) {
       settingService.addAllowedRedirectUri(prefix);
     }
+    // The self-registration rate limit counts calls of the singleton across
+    // every test sharing the Spring context
+    OAuthClientService clientServiceTarget = AopTestUtils.getTargetObject(clientService);
+    ReflectionTestUtils.setField(clientServiceTarget, "lastRegisterCountInstant", null);
   }
 
   @Test
@@ -132,6 +140,68 @@ class OAuthClientServiceIntegrationTest extends OAuthServiceIntegrationTestSuppo
 
   @Test
   @SneakyThrows
+  void registerKeepsCimdClientIdWhenADcrClientSharesItsRedirectUri() {
+    String redirectUri = "https://client.com/callback/shared-" + UUID.randomUUID();
+    RegisteredClient dcrClient = clientService.register(dcrClient("dcr-" + UUID.randomUUID(),
+                                                                  redirectUri,
+                                                                  ClientAuthenticationMethod.CLIENT_SECRET_BASIC));
+    String cimdClientId = "https://client.com/client-metadata-" + UUID.randomUUID();
+
+    RegisteredClient cimdClient = clientService.register(cimdClient(cimdClientId, redirectUri));
+
+    assertThat(cimdClient.getClientId()).isEqualTo(cimdClientId);
+    assertThat(cimdClient.getClientAuthenticationMethods()).containsExactly(ClientAuthenticationMethod.NONE);
+    assertThat(clientService.getClient(dcrClient.getClientId(), false).getClientAuthenticationMethods())
+                                                                                                 .containsExactly(ClientAuthenticationMethod.CLIENT_SECRET_BASIC);
+  }
+
+  @Test
+  @SneakyThrows
+  void registerDoesNotMergeADcrClientIntoACimdClientSharingItsRedirectUri() {
+    String redirectUri = "https://client.com/callback/shared-" + UUID.randomUUID();
+    clientService.register(cimdClient("https://client.com/client-metadata-" + UUID.randomUUID(), redirectUri));
+    String dcrClientId = "dcr-" + UUID.randomUUID();
+
+    RegisteredClient dcrClient = clientService.register(dcrClient(dcrClientId, redirectUri, ClientAuthenticationMethod.NONE));
+
+    assertThat(dcrClient.getClientId()).isEqualTo(dcrClientId);
+  }
+
+  @Test
+  @SneakyThrows
+  void registerMergesADcrClientIntoTheDcrClientSharingItsRedirectUri() {
+    String redirectUri = "https://client.com/callback/shared-" + UUID.randomUUID();
+    RegisteredClient first = clientService.register(dcrClient("dcr-" + UUID.randomUUID(),
+                                                              redirectUri,
+                                                              ClientAuthenticationMethod.NONE));
+
+    RegisteredClient second = clientService.register(dcrClient("dcr-" + UUID.randomUUID(),
+                                                               redirectUri,
+                                                               ClientAuthenticationMethod.NONE));
+
+    assertThat(second.getClientId()).isEqualTo(first.getClientId());
+  }
+
+  /**
+   * A DCR request reaches register with the grant types it asked for
+   * (OAuthDcrAuthenticationProvider), the JWT Bearer grant included.
+   */
+  @Test
+  void registerDoesNotStoreARefusedClient() {
+    String clientId = "dcr-" + UUID.randomUUID();
+    RegisteredClient request = RegisteredClient.from(dcrClient(clientId,
+                                                               "https://client.com/callback/refused-" + UUID.randomUUID(),
+                                                               ClientAuthenticationMethod.NONE))
+                                               .authorizationGrantType(AuthorizationGrantType.JWT_BEARER)
+                                               .build();
+
+    assertThatThrownBy(() -> clientService.register(request)).isInstanceOf(IllegalStateException.class)
+                                                             .hasMessageContaining("Self Registered Client not enabled");
+    assertThat(clientService.getClient(clientId, true)).isNull();
+  }
+
+  @Test
+  @SneakyThrows
   void disabledClientIsExcludedFromDefaultLookup() {
     String clientId = "disabled-client-" + UUID.randomUUID();
     RegisteredClient client = publicClient(clientId, "https://client.com/callback/disabled-" + UUID.randomUUID());
@@ -141,6 +211,32 @@ class OAuthClientServiceIntegrationTest extends OAuthServiceIntegrationTestSuppo
 
     assertThat(clientService.getClient(clientId, false)).isNull();
     assertThat(clientService.getClient(clientId, true)).isNotNull();
+  }
+
+  private RegisteredClient dcrClient(String clientId, String redirectUri, ClientAuthenticationMethod authenticationMethod) {
+    RegisteredClient client = publicClient(clientId, redirectUri);
+    RegisteredClient.Builder builder = RegisteredClient.from(client)
+                                                       .clientAuthenticationMethods(m -> {
+                                                         m.clear();
+                                                         m.add(authenticationMethod);
+                                                       })
+                                                       .clientSettings(ClientSettings.withSettings(client.getClientSettings()
+                                                                                                         .getSettings())
+                                                                                     .setting(CLIENT_IS_DCR_SETTING, true)
+                                                                                     .build());
+    if (!ClientAuthenticationMethod.NONE.equals(authenticationMethod)) {
+      builder.clientSecret("dcr-secret");
+    }
+    return builder.build();
+  }
+
+  private RegisteredClient cimdClient(String clientId, String redirectUri) {
+    RegisteredClient client = publicClient(clientId, redirectUri);
+    return RegisteredClient.from(client)
+                           .clientSettings(ClientSettings.withSettings(client.getClientSettings().getSettings())
+                                                         .setting(CLIENT_IS_CIMD_SETTING, true)
+                                                         .build())
+                           .build();
   }
 
   private RegisteredClient publicClient(String clientId, String redirectUri) {
