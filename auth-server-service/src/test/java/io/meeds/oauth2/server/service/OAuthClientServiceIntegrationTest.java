@@ -163,14 +163,16 @@ class OAuthClientServiceIntegrationTest extends OAuthServiceIntegrationTestSuppo
 
   @Test
   @SneakyThrows
-  void registerDoesNotMergeADcrClientIntoACimdClientSharingItsRedirectUri() {
+  void registerMergesADcrClientIntoTheCimdClientSharingItsRedirectUri() {
     String redirectUri = "https://client.com/callback/shared-" + UUID.randomUUID();
-    clientService.register(cimdClient("https://client.com/client-metadata-" + UUID.randomUUID(), redirectUri));
-    String dcrClientId = "dcr-" + UUID.randomUUID();
+    String cimdClientId = "https://client.com/client-metadata-" + UUID.randomUUID();
+    clientService.register(cimdClient(cimdClientId, redirectUri));
 
-    RegisteredClient dcrClient = clientService.register(dcrClient(dcrClientId, redirectUri, ClientAuthenticationMethod.NONE));
+    RegisteredClient dcrClient = clientService.register(dcrClient("dcr-" + UUID.randomUUID(),
+                                                                  redirectUri,
+                                                                  ClientAuthenticationMethod.NONE));
 
-    assertThat(dcrClient.getClientId()).isEqualTo(dcrClientId);
+    assertThat(dcrClient.getClientId()).isEqualTo(cimdClientId);
   }
 
   @Test
@@ -190,14 +192,54 @@ class OAuthClientServiceIntegrationTest extends OAuthServiceIntegrationTestSuppo
 
   @Test
   @SneakyThrows
-  void registerDoesNotMergeADcrClientIntoAnAdminCreatedClientSharingItsRedirectUri() {
+  void registerMergesADcrClientIntoTheAdminCreatedClientSharingItsRedirectUri() {
     String redirectUri = "https://client.com/callback/shared-" + UUID.randomUUID();
-    clientService.createClient(publicClient("admin-" + UUID.randomUUID(), redirectUri));
-    String dcrClientId = "dcr-" + UUID.randomUUID();
+    String adminClientId = "admin-" + UUID.randomUUID();
+    clientService.createClient(publicClient(adminClientId, redirectUri));
 
-    RegisteredClient dcrClient = clientService.register(dcrClient(dcrClientId, redirectUri, ClientAuthenticationMethod.NONE));
+    RegisteredClient dcrClient = clientService.register(dcrClient("dcr-" + UUID.randomUUID(),
+                                                                  redirectUri,
+                                                                  ClientAuthenticationMethod.NONE));
 
-    assertThat(dcrClient.getClientId()).isEqualTo(dcrClientId);
+    assertThat(dcrClient.getClientId()).isEqualTo(adminClientId);
+  }
+
+  /**
+   * The redirect URI allow-list applies to self-registered clients only, not
+   * to an existing client a DCR request is merged into.
+   */
+  @Test
+  @SneakyThrows
+  void registerMergesADcrClientIntoTheAdminCreatedClientOfARedirectUriNotAllowed() {
+    String redirectUri = "https://not-allowed.com/callback/" + UUID.randomUUID();
+    String adminClientId = "admin-" + UUID.randomUUID();
+    clientService.createClient(publicClient(adminClientId, redirectUri));
+
+    RegisteredClient dcrClient = clientService.register(dcrClient("dcr-" + UUID.randomUUID(),
+                                                                  redirectUri,
+                                                                  ClientAuthenticationMethod.NONE));
+
+    assertThat(dcrClient.getClientId()).isEqualTo(adminClientId);
+  }
+
+  @Test
+  @SneakyThrows
+  void registerMergesADcrClientIntoTheAdminCreatedClientWhileSelfRegistrationIsDisabled() {
+    String redirectUri = "https://client.com/callback/shared-" + UUID.randomUUID();
+    String adminClientId = "admin-" + UUID.randomUUID();
+    clientService.createClient(publicClient(adminClientId, redirectUri));
+    OAuthClientService clientServiceTarget = AopTestUtils.getTargetObject(clientService);
+    Object selfRegisterEnabled = ReflectionTestUtils.getField(clientServiceTarget, "selfRegisterEnabled");
+    ReflectionTestUtils.setField(clientServiceTarget, "selfRegisterEnabled", false);
+    try {
+      RegisteredClient dcrClient = clientService.register(dcrClient("dcr-" + UUID.randomUUID(),
+                                                                    redirectUri,
+                                                                    ClientAuthenticationMethod.NONE));
+
+      assertThat(dcrClient.getClientId()).isEqualTo(adminClientId);
+    } finally {
+      ReflectionTestUtils.setField(clientServiceTarget, "selfRegisterEnabled", selfRegisterEnabled);
+    }
   }
 
   /**

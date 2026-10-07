@@ -436,10 +436,7 @@ public class OAuthClientService {
       // client presents as client_id on every request
       return publicClient.getClientId();
     }
-    // A DCR client gets back the registration it is merged into, so it is
-    // merged only into another DCR client
     RegisteredClient existingClient = getClients(false).stream()
-                                                       .filter(this::isDcrClient)
                                                        .filter(c -> publicClient.getRedirectUris()
                                                                                 .stream()
                                                                                 .allMatch(u -> c.getRedirectUris()
