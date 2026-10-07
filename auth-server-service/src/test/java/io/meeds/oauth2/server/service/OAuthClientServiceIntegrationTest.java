@@ -34,6 +34,7 @@ import java.time.Duration;
 import java.util.Set;
 import java.util.UUID;
 
+import org.assertj.core.api.ThrowableAssert.ThrowingCallable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -228,18 +229,32 @@ class OAuthClientServiceIntegrationTest extends OAuthServiceIntegrationTestSuppo
     String redirectUri = "https://client.com/callback/shared-" + UUID.randomUUID();
     String adminClientId = "admin-" + UUID.randomUUID();
     clientService.createClient(publicClient(adminClientId, redirectUri));
-    OAuthClientService clientServiceTarget = AopTestUtils.getTargetObject(clientService);
-    Object selfRegisterEnabled = ReflectionTestUtils.getField(clientServiceTarget, "selfRegisterEnabled");
-    ReflectionTestUtils.setField(clientServiceTarget, "selfRegisterEnabled", false);
-    try {
+
+    whileSelfRegistrationIsDisabled(() -> {
       RegisteredClient dcrClient = clientService.register(dcrClient("dcr-" + UUID.randomUUID(),
                                                                     redirectUri,
                                                                     ClientAuthenticationMethod.NONE));
 
       assertThat(dcrClient.getClientId()).isEqualTo(adminClientId);
-    } finally {
-      ReflectionTestUtils.setField(clientServiceTarget, "selfRegisterEnabled", selfRegisterEnabled);
-    }
+    });
+  }
+
+  /**
+   * A CIMD client is identified by its own URL: an existing client sharing its
+   * redirect URIs does not make it a known client.
+   */
+  @Test
+  @SneakyThrows
+  void registerRefusesANewCimdClientWhileSelfRegistrationIsDisabled() {
+    String redirectUri = "https://client.com/callback/shared-" + UUID.randomUUID();
+    clientService.createClient(publicClient("admin-" + UUID.randomUUID(), redirectUri));
+    String cimdClientId = "https://client.com/client-metadata-" + UUID.randomUUID();
+    RegisteredClient request = cimdClient(cimdClientId, redirectUri);
+
+    whileSelfRegistrationIsDisabled(() -> assertThatThrownBy(() -> clientService.register(request))
+                                                                                         .isInstanceOf(IllegalStateException.class)
+                                                                                         .hasMessageContaining("Feature is disabled"));
+    assertThat(clientService.getClient(cimdClientId, true)).isNull();
   }
 
   /**
@@ -307,6 +322,18 @@ class OAuthClientServiceIntegrationTest extends OAuthServiceIntegrationTestSuppo
       utils.verify(() -> Utils.validateUrl(anyString()), never());
     }
     assertThat(clientService.getClient(request.getClientId(), true)).isNull();
+  }
+
+  @SneakyThrows
+  private void whileSelfRegistrationIsDisabled(ThrowingCallable callable) {
+    OAuthClientService clientServiceTarget = AopTestUtils.getTargetObject(clientService);
+    Object selfRegisterEnabled = ReflectionTestUtils.getField(clientServiceTarget, "selfRegisterEnabled");
+    ReflectionTestUtils.setField(clientServiceTarget, "selfRegisterEnabled", false);
+    try {
+      callable.call();
+    } finally {
+      ReflectionTestUtils.setField(clientServiceTarget, "selfRegisterEnabled", selfRegisterEnabled);
+    }
   }
 
   private RegisteredClient withLogo(RegisteredClient client) {
