@@ -299,7 +299,7 @@ class OAuthCimdClientResolverTest {
   void resolveShouldRefuseAClientIdOutsideTheProductionRules() {
     try (SafeHttpFetcher production = new SafeHttpFetcher(Utils.urlFetchPolicy(Utils.CIMD_MAX_BYTES).resolver(counting(stub)).build())) {
       OAuthCimdClientResolver productionResolver = resolverWith(production);
-      for (String refused : new String[] { "not a url", "http://client.example.org/metadata", "https://client.example.org:8443/metadata",
+      for (String refused : new String[] { "not a url", "http://client.example.org/metadata", "http://client.example.org:443/metadata", "https://client.example.org:8443/metadata",
           "https://client.example.org/metadata#frag", "https://127.0.0.1/metadata", "https://[::1]/metadata",
           "https://169.254.169.254/latest/meta-data" }) {
         assertThrows(IllegalArgumentException.class, () -> productionResolver.resolve(refused), refused);
