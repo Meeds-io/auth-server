@@ -21,13 +21,12 @@ package io.meeds.oauth2.server.configuration;
 import static org.springframework.security.config.Customizer.withDefaults;
 
 import java.net.URLEncoder;
-import java.net.http.HttpClient;
 import java.nio.charset.StandardCharsets;
-import java.time.Duration;
 import java.util.List;
 
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.security.oauth2.server.authorization.autoconfigure.servlet.OAuth2AuthorizationServerProperties;
 import org.springframework.context.annotation.Bean;
@@ -37,7 +36,6 @@ import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
-import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.authentication.ProviderManager;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
@@ -69,7 +67,6 @@ import org.springframework.security.web.context.HttpSessionSecurityContextReposi
 import org.springframework.security.web.context.RequestAttributeSecurityContextRepository;
 import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.security.web.util.matcher.MediaTypeRequestMatcher;
-import org.springframework.web.client.RestClient;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import org.springframework.web.util.UriComponentsBuilder;
 
@@ -77,6 +74,7 @@ import org.exoplatform.commons.utils.CommonsUtils;
 import org.exoplatform.services.listener.ListenerService;
 import org.exoplatform.web.security.codec.CodecInitializer;
 
+import io.meeds.commons.http.SafeHttpFetcher;
 import io.meeds.oauth2.server.configuration.model.OAuthDefaultSettings;
 import io.meeds.oauth2.server.plugin.OAuthAuthorizationRequestConverter;
 import io.meeds.oauth2.server.plugin.OAuthDcrHttpAuthenticationConverter;
@@ -88,6 +86,7 @@ import io.meeds.oauth2.server.security.OAuthPortalAuthenticationProvider;
 import io.meeds.oauth2.server.service.OAuthAccessTokenCustomizerService;
 import io.meeds.oauth2.server.service.OAuthClientService;
 import io.meeds.oauth2.server.service.OAuthSettingService;
+import io.meeds.oauth2.server.util.Utils;
 import io.meeds.oauth2.server.web.OAuthCorsConfigurationSource;
 import io.meeds.oauth2.server.web.OAuthPortalPreAuthenticatedFilter;
 
@@ -267,15 +266,19 @@ public class OAuthSecurityConfiguration {
                                               oAuthRefreshTokenGenerator);
   }
 
-  @Bean
-  RestClient restClient() {
-    HttpClient httpClient = HttpClient.newBuilder()
-                                      .connectTimeout(Duration.ofSeconds(3))
-                                      .followRedirects(HttpClient.Redirect.NEVER)
-                                      .build();
-    return RestClient.builder()
-                     .requestFactory(new JdkClientHttpRequestFactory(httpClient))
-                     .build();
+  /**
+   * The one fetcher of the URLs a client gives the server to read — the
+   * Client ID Metadata Document its {@code client_id} names and the logo it
+   * declares — under {@link Utils#urlFetchPolicy}: the address of every
+   * connection is judged by the fetcher's own resolver, so the address checked
+   * is the address dialled. Closed with the context.
+   *
+   * @param maxLogoBytes the most bytes of a logo read
+   * @return the fetcher
+   */
+  @Bean(destroyMethod = "close")
+  SafeHttpFetcher oauthUrlFetcher(@Value("${meeds.oauth.selfRegister.maxLogoBytes:20971520}") long maxLogoBytes) {
+    return new SafeHttpFetcher(Utils.urlFetchPolicy(Math.max(maxLogoBytes, Utils.CIMD_MAX_BYTES)).build());
   }
 
   private String buildInitialUri(HttpServletRequest request) {

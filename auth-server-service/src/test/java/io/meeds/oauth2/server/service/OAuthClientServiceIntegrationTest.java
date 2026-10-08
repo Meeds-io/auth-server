@@ -25,10 +25,8 @@ import static io.meeds.oauth2.server.util.EntityMapper.CLIENT_LOGO_URI_SETTING;
 import static io.meeds.oauth2.server.util.EntityMapper.CLIENT_SYSTEM_SETTING;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.CALLS_REAL_METHODS;
-import static org.mockito.Mockito.mockStatic;
-import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verifyNoInteractions;
 
 import java.time.Duration;
 import java.util.Set;
@@ -38,7 +36,6 @@ import org.assertj.core.api.ThrowableAssert.ThrowingCallable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.mockito.MockedStatic;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.oauth2.core.AuthorizationGrantType;
 import org.springframework.security.oauth2.core.ClientAuthenticationMethod;
@@ -52,6 +49,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 import org.exoplatform.commons.ObjectAlreadyExistsException;
 import org.exoplatform.commons.exception.ObjectNotFoundException;
 
+import io.meeds.commons.http.SafeHttpFetcher;
 import io.meeds.oauth2.server.test.OAuthServiceIntegrationTestSupport;
 import io.meeds.oauth2.server.util.Utils;
 
@@ -317,9 +315,15 @@ class OAuthClientServiceIntegrationTest extends OAuthServiceIntegrationTestSuppo
   }
 
   private void assertRefusedWithoutFetchingTheLogo(RegisteredClient request) {
-    try (MockedStatic<Utils> utils = mockStatic(Utils.class, CALLS_REAL_METHODS)) {
+    OAuthClientService clientServiceTarget = AopTestUtils.getTargetObject(clientService);
+    Object fetcher = ReflectionTestUtils.getField(clientServiceTarget, "fetcher");
+    SafeHttpFetcher watchedFetcher = mock(SafeHttpFetcher.class);
+    ReflectionTestUtils.setField(clientServiceTarget, "fetcher", watchedFetcher);
+    try {
       assertThatThrownBy(() -> clientService.register(request)).isInstanceOf(IllegalStateException.class);
-      utils.verify(() -> Utils.validateUrl(anyString()), never());
+      verifyNoInteractions(watchedFetcher);
+    } finally {
+      ReflectionTestUtils.setField(clientServiceTarget, "fetcher", fetcher);
     }
     assertThat(clientService.getClient(request.getClientId(), true)).isNull();
   }
