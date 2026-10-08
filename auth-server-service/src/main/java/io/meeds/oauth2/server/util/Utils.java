@@ -18,70 +18,63 @@
  */
 package io.meeds.oauth2.server.util;
 
-import java.net.IDN;
-import java.net.Inet6Address;
-import java.net.InetAddress;
-import java.net.URI;
-import java.net.UnknownHostException;
-import java.util.Locale;
+import java.time.Duration;
+import java.util.Set;
+
+import io.meeds.commons.http.SafeFetchPolicy;
+import io.meeds.commons.http.SafeFetchPolicyBuilder;
 
 public class Utils {
 
-  public static final String OFFLINE_ACCESS_SCOPE = "offline_access";
+  public static final String   OFFLINE_ACCESS_SCOPE   = "offline_access";
+
+  /**
+   * Most bytes read of a Client ID Metadata Document: a JSON document of a
+   * few hundred bytes, far below this bound.
+   */
+  public static final long     CIMD_MAX_BYTES         = 64L * 1024;
+
+  /** Name of the fetcher of the URLs a client gives, and of its deadline thread. */
+  public static final String   URL_FETCHER_NAME       = "auth-server-url-fetcher";
+
+  /** User-Agent of the fetches of the URLs a client gives. */
+  public static final String   URL_FETCHER_USER_AGENT = "Meeds-Auth-Server/1.0";
+
+  /** Longest wait for a connection to a URL a client gives. */
+  public static final Duration URL_CONNECT_TIMEOUT    = Duration.ofSeconds(3);
+
+  /** Longest wait between two reads of a URL a client gives. */
+  public static final Duration URL_READ_TIMEOUT       = Duration.ofSeconds(10);
+
+  /** Longest read of a URL a client gives. */
+  public static final Duration URL_TOTAL_TIMEOUT      = Duration.ofSeconds(20);
 
   private Utils() {
     // Utils Class
   }
 
-  public static URI validateUrl(String raw) throws UnknownHostException { // NOSONAR
-    URI uri = URI.create(raw).normalize();
-    if (!"https".equalsIgnoreCase(uri.getScheme())) {
-      throw new IllegalArgumentException("Only HTTPS URLs are allowed");
-    }
-    String host = getHost(uri);
-    if (host == null || host.isBlank()) {
-      throw new IllegalArgumentException("Missing host");
-    }
-    if (uri.getUserInfo() != null) {
-      throw new IllegalArgumentException("User info is not allowed");
-    }
-    if (uri.getFragment() != null) {
-      throw new IllegalArgumentException("Fragments are not allowed");
-    }
-
-    int port = uri.getPort();
-    if (port != -1 && port != 443) {
-      throw new IllegalArgumentException("Port not allowed");
-    }
-
-    String s = uri.toASCIIString();
-    if (s.length() > 2048) {
-      throw new IllegalArgumentException("URL too long");
-    }
-    InetAddress[] addresses = InetAddress.getAllByName(host);
-    if (addresses.length == 0) {
-      throw new IllegalArgumentException("Host did not resolve");
-    }
-    for (InetAddress addr : addresses) {
-      if (addr.isAnyLocalAddress()
-          || addr.isLoopbackAddress()
-          || addr.isLinkLocalAddress()
-          || addr.isSiteLocalAddress()
-          || addr.isMulticastAddress()) {
-        throw new IllegalArgumentException("Host resolves to a non-public address");
-      }
-      if (addr instanceof Inet6Address) {
-        byte first = addr.getAddress()[0];
-        if ((first & (byte) 0xfe) == (byte) 0xfc) {
-          throw new IllegalArgumentException("Host resolves to a non-public IPv6 address");
-        }
-      }
-    }
-    return uri;
-  }
-
-  private static String getHost(URI uri) {
-    return IDN.toASCII(uri.getHost(), IDN.ALLOW_UNASSIGNED).toLowerCase(Locale.ROOT);
+  /**
+   * The policy under which the server reads a URL a client gives — the Client
+   * ID Metadata Document a {@code client_id} names, the logo a client
+   * declares: https on port 443, public addresses only, judged by the HTTP
+   * client's own resolver at every connection, no redirect followed, the
+   * timeouts above.
+   *
+   * @param maxBytes the most bytes a read takes, the largest of the reads made
+   *          under this policy
+   * @return the policy's builder, for a test to replace the resolver
+   */
+  public static SafeFetchPolicyBuilder urlFetchPolicy(long maxBytes) {
+    return SafeFetchPolicy.builder()
+                          .name(URL_FETCHER_NAME)
+                          .userAgent(URL_FETCHER_USER_AGENT)
+                          .httpsOnly()
+                          .allowedPorts(Set.of(443))
+                          .maxRedirects(0)
+                          .maxBytes(maxBytes)
+                          .connectTimeout(URL_CONNECT_TIMEOUT)
+                          .readTimeout(URL_READ_TIMEOUT)
+                          .totalTimeout(URL_TOTAL_TIMEOUT);
   }
 
 }

@@ -43,7 +43,6 @@ import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.HttpStatusCode;
 import org.springframework.security.oauth2.core.AuthorizationGrantType;
 import org.springframework.security.oauth2.core.ClientAuthenticationMethod;
 import org.springframework.security.oauth2.core.oidc.OidcScopes;
@@ -52,7 +51,6 @@ import org.springframework.security.oauth2.server.authorization.client.Registere
 import org.springframework.security.oauth2.server.authorization.settings.ClientSettings;
 import org.springframework.security.oauth2.server.authorization.settings.TokenSettings;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.RestClient;
 
 import org.exoplatform.commons.ObjectAlreadyExistsException;
 import org.exoplatform.commons.exception.ObjectNotFoundException;
@@ -66,6 +64,8 @@ import org.exoplatform.social.core.manager.IdentityManager;
 import org.exoplatform.upload.UploadResource;
 import org.exoplatform.upload.UploadService;
 
+import io.meeds.commons.http.SafeFetchRequest;
+import io.meeds.commons.http.SafeHttpFetcher;
 import io.meeds.oauth2.server.model.ClientRegistrationRateLimitException;
 import io.meeds.oauth2.server.plugin.OAuthClientAttachmentPlugin;
 import io.meeds.oauth2.server.plugin.OAuthDcrValidator;
@@ -98,8 +98,10 @@ public class OAuthClientService {
 
   private static final int        REGISTER_RATE_SECONDS_COUNT = 60;
 
+  private static final String     LOGO_ACCEPT                 = "image/png,image/jpeg,image/webp";
+
   @Autowired
-  private RestClient              restClient;
+  private SafeHttpFetcher         fetcher;
 
   @Autowired
   private UserACL                 userAcl;
@@ -531,21 +533,26 @@ public class OAuthClientService {
     return clientSettingsBuilder.build();
   }
 
-  private String fetchLogoUrl(String clientId, String url) {
+  /**
+   * Reads the logo a client declares and serves it from a local attachment.
+   * The URL is read through the platform's guarded fetcher: https on port 443
+   * and a public address only, the address judged by the fetcher's own
+   * resolver when the connection opens, no redirect followed, at most
+   * {@code maxLogoBytes}, a larger logo refused before it is downloaded.
+   *
+   * @param clientId the client
+   * @param url the logo URL the client declares
+   * @return the local URL of the logo, or null when nothing usable was read
+   */
+  String fetchLogoUrl(String clientId, String url) {
     try {
-      URI uri = Utils.validateUrl(url);
-      byte[] imageBytes = restClient.get()
-                                    .uri(uri)
-                                    .header("Accept", "image/png,image/jpeg,image/webp")
-                                    .retrieve()
-                                    .onStatus(HttpStatusCode::isError, (req, res) -> {
-                                      throw new IllegalArgumentException("Remote server returned " + res.getStatusCode());
-                                    })
-                                    .body(byte[].class);
+      URI uri = fetcher.getGuard().normalize(url);
+      byte[] imageBytes = fetcher.fetch(SafeFetchRequest.get(uri)
+                                                        .withAccept(LOGO_ACCEPT)
+                                                        .withMaxBytes(maxLogoBytes))
+                                 .body();
       if (imageBytes == null || imageBytes.length == 0) {
         throw new IllegalArgumentException("Empty response");
-      } else if (imageBytes.length > maxLogoBytes) {
-        throw new IllegalArgumentException("Image too large");
       } else {
         byte[] resizedImageBytes = imageResizeService.scaleImage(imageBytes,
                                                                  300,
