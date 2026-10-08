@@ -134,8 +134,9 @@ class OAuthClientServiceLogoFetchTest {
   }
 
   /**
-   * A logo larger than the limit is refused before it is downloaded, and never
-   * resized.
+   * A logo larger than the logo limit is refused, though the policy's own
+   * limit is far larger, and never resized; one announcing a huge body is
+   * refused before it is downloaded.
    *
    * @throws Exception when the resizing mock fails
    */
@@ -143,6 +144,10 @@ class OAuthClientServiceLogoFetchTest {
   void aLogoOverTheLimitIsRefusedBeforeItIsDownloaded() throws Exception {
     AtomicLong written = new AtomicLong();
     handler = exchange -> {
+      if ("/large.png".equals(exchange.getRequestURI().getPath())) {
+        answer(exchange, new byte[MAX_LOGO * 4]);
+        return;
+      }
       exchange.sendResponseHeaders(200, 1L << 30);
       byte[] chunk = new byte[64 * 1024];
       try (OutputStream output = exchange.getResponseBody()) {
@@ -153,7 +158,9 @@ class OAuthClientServiceLogoFetchTest {
       }
     };
     try (SafeHttpFetcher fetcher = openToTheStub(true)) {
-      assertNull(serviceWith(fetcher).fetchLogoUrl("client", "http://" + HOST + ":" + port + "/huge.png"));
+      OAuthClientService service = serviceWith(fetcher);
+      assertNull(service.fetchLogoUrl("client", "http://" + HOST + ":" + port + "/large.png"));
+      assertNull(service.fetchLogoUrl("client", "http://" + HOST + ":" + port + "/huge.png"));
     }
     verify(imageResizeService, never()).scaleImage(any(), anyInt(), anyInt(), anyBoolean(), anyBoolean());
     assertTrue(written.get() < 16L * 1024 * 1024, "the refused logo was downloaded: " + written.get() + " bytes");
