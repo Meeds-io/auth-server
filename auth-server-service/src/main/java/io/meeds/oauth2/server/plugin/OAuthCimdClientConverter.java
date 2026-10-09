@@ -71,7 +71,13 @@ public class OAuthCimdClientConverter {
     if (StringUtils.isNotBlank(metadata.scope())) {
       Collections.addAll(metadataScopes, metadata.scope().trim().split("\\s+"));
     }
-    List<String> metadataGrantTypes = metadata.grantTypes();
+    // The JWT Bearer grant is never given to a self-registered client
+    // (OAuthClientService#register): a CIMD document listing it is registered
+    // without it, since the client has no registration response to learn it from
+    List<String> metadataGrantTypes = metadata.grantTypes()
+                                              .stream()
+                                              .filter(g -> !AuthorizationGrantType.JWT_BEARER.getValue().equals(g))
+                                              .toList();
 
     ClientSettings clientSettings = clientSettingsBuilder.build();
     return RegisteredClient.withId(metadata.clientId())
