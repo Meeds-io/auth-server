@@ -46,7 +46,7 @@ public class OAuthTokenEntity {
   @Column(name = "ID", nullable = false, length = 100)
   private String              id;
 
-  @Column(name = "REGISTERED_CLIENT_ID", nullable = false, length = 100)
+  @Column(name = "REGISTERED_CLIENT_ID", nullable = false, length = 255)
   private String              registeredClientId;
 
   @Column(name = "PRINCIPAL_NAME", nullable = false, length = 200)
