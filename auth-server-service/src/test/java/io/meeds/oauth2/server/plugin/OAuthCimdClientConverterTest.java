@@ -111,6 +111,37 @@ class OAuthCimdClientConverterTest {
     assertTrue(client.getClientSettings().isRequireAuthorizationConsent());
   }
 
+  /**
+   * The grant types Claude's CIMD document declares
+   * (https://claude.ai/oauth/mcp-oauth-client-metadata): the JWT Bearer grant,
+   * which OAuthClientService#register refuses to a self-registered client, is
+   * dropped while the others are kept.
+   */
+  @Test
+  void convertShouldDropJwtBearerGrantType() {
+    when(oAuthSettingService.getScopes()).thenReturn(Set.of(OidcScopes.OPENID));
+
+    OAuthCimdClientMetadata metadata = new OAuthCimdClientMetadata("https://client.example.org/metadata",
+                                                                   "CIMD Client",
+                                                                   APP_URL,
+                                                                   null,
+                                                                   null,
+                                                                   List.of(APP_CALLBACK_URL),
+                                                                   List.of(AUTHORIZATION_CODE,
+                                                                           REFRESH_TOKEN,
+                                                                           AuthorizationGrantType.JWT_BEARER.getValue()),
+                                                                   List.of("code"),
+                                                                   null,
+                                                                   "none",
+                                                                   null,
+                                                                   null);
+
+    RegisteredClient client = converter.convert(metadata, Set.of());
+
+    assertEquals(Set.of(AuthorizationGrantType.AUTHORIZATION_CODE, AuthorizationGrantType.REFRESH_TOKEN),
+                 client.getAuthorizationGrantTypes());
+  }
+
   @Test
   void convertShouldSupportPublicClientWithoutOptionalUris() {
     when(oAuthSettingService.getScopes()).thenReturn(Set.of(OidcScopes.OPENID));
