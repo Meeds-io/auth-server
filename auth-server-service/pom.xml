@@ -40,6 +40,12 @@
       <artifactId>social-component-core</artifactId>
       <scope>provided</scope>
     </dependency>
+    <!-- Commons (the guarded fetcher for client-given URLs) -->
+    <dependency>
+      <groupId>io.meeds.commons</groupId>
+      <artifactId>commons-component-common</artifactId>
+      <scope>provided</scope>
+    </dependency>
 
     <!-- OAuth2 Authorization Server -->
     <dependency>
