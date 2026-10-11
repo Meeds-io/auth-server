@@ -565,7 +565,8 @@ public class OAuthClientService {
    * The URL is read through the platform's guarded fetcher: https on port 443
    * and a public address only, the address judged by the fetcher's own
    * resolver when the connection opens, no redirect followed, at most
-   * {@code maxLogoBytes}, a larger logo refused before it is downloaded.
+   * {@code maxLogoBytes}, a larger logo refused once the limit is reached,
+   * before it is downloaded when its length is declared.
    *
    * @param clientId the client
    * @param url the logo URL the client declares
