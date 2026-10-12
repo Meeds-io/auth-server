@@ -48,7 +48,7 @@ public class OAuthConsentEntity {
   @Column(name = "ID")
   private Long        id;
 
-  @Column(name = "REGISTERED_CLIENT_ID", nullable = false, length = 100)
+  @Column(name = "REGISTERED_CLIENT_ID", nullable = false, length = 255)
   private String      registeredClientId;
 
   @Column(name = "PRINCIPAL_NAME", nullable = false, length = 200)
