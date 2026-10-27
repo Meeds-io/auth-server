@@ -19,12 +19,15 @@
 package io.meeds.oauth2.server.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
@@ -38,6 +41,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -50,6 +54,9 @@ import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpServer;
 
 import io.meeds.commons.http.HostResolver;
+import io.meeds.commons.http.SafeFetchException;
+import io.meeds.commons.http.SafeFetchFailure;
+import io.meeds.commons.http.SafeFetchRequest;
 import io.meeds.commons.http.SafeHttpFetcher;
 import io.meeds.oauth2.server.util.Utils;
 
@@ -169,16 +176,31 @@ class OAuthClientServiceLogoFetchTest {
   /**
    * Under the production policy, a logo URL whose host resolves to an internal
    * address is refused by the lookup the connection itself makes, and nothing
-   * is read.
+   * is read: the read fails with the guard's refusal, not with a connection
+   * that could not be made.
    *
    * @throws Exception when the resizing mock fails
    */
   @Test
   void aLogoOnAHostResolvingToABlockedAddressIsRefusedAtConnection() throws Exception {
     InetAddress internal = InetAddress.getByAddress(new byte[] { 10, 0, 0, 5 });
+    AtomicReference<SafeFetchException> failure = new AtomicReference<>();
     try (SafeHttpFetcher production = new SafeHttpFetcher(Utils.urlFetchPolicy(MAX_LOGO).resolver(counting(internal)).build())) {
-      assertNull(serviceWith(production).fetchLogoUrl("client", "https://" + HOST + "/logo.png"));
+      SafeHttpFetcher watched = spy(production);
+      doAnswer(invocation -> {
+        try {
+          return invocation.callRealMethod();
+        } catch (SafeFetchException e) {
+          failure.set(e);
+          throw e;
+        }
+      }).when(watched).fetch(any(SafeFetchRequest.class));
+
+      assertNull(serviceWith(watched).fetchLogoUrl("client", "https://" + HOST + "/logo.png"));
     }
+    assertEquals(SafeFetchFailure.REFUSED_ADDRESS,
+                 assertInstanceOf(SafeFetchException.class, failure.get(), "the read must fail with the fetcher's refusal").getFailure(),
+                 "the read must fail on the guard's refusal, not on the connection");
     assertEquals(List.of(HOST), lookups, "the connection's own lookup is the one judged");
     verify(imageResizeService, never()).scaleImage(any(), anyInt(), anyInt(), anyBoolean(), anyBoolean());
   }
